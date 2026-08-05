@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useThree } from '@react-three/fiber';
+import { useEffect, useRef } from 'react';
+import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { SkyDome } from './Sky';
 import { Ocean } from './Ocean';
@@ -15,10 +15,12 @@ import { Player } from './Player';
 import { setState } from '@/lib/store';
 
 function Ready() {
-  useEffect(() => {
-    const id = requestAnimationFrame(() => setState({ loaded: true }));
-    return () => cancelAnimationFrame(id);
-  }, []);
+  const done = useRef(false);
+  useFrame(() => {
+    if (done.current) return;
+    done.current = true;
+    setState({ loaded: true });
+  });
   return null;
 }
 

@@ -89,13 +89,8 @@ export default function Home() {
             <Link
               key={city.slug}
               href={`/city/${city.slug}`}
+              className="city-card"
               style={{
-                display: 'block',
-                borderRadius: 20,
-                overflow: 'hidden',
-                border: '1px solid rgba(255,255,255,.1)',
-                background: 'rgba(255,255,255,.035)',
-                backdropFilter: 'blur(8px)',
                 animation: `fadeUp .6s ${0.1 + i * 0.06}s ease both`,
               }}
             >

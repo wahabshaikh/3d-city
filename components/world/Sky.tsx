@@ -158,6 +158,8 @@ export function SkyDome() {
     return t;
   }, []);
 
+  const fog = useMemo(() => new THREE.FogExp2(0x0b1120, 0.00036), []);
+
   useEffect(() => {
     scene.environment = envTex;
     return () => {
@@ -174,7 +176,9 @@ export function SkyDome() {
     uniforms.uSunDir.value.copy(dir);
     uniforms.uNight.value = THREE.MathUtils.clamp(1 - p.sunI / 1.2, 0, 1);
 
-    scene.fog = new THREE.FogExp2(p.fog.getHex(), tod > 0.2 && tod < 0.84 ? 0.00023 : 0.00036);
+    fog.color.copy(p.fog);
+    fog.density = tod > 0.2 && tod < 0.84 ? 0.00023 : 0.00036;
+    scene.fog = fog;
     scene.background = null;
 
     if (sunRef.current) {
@@ -198,7 +202,7 @@ export function SkyDome() {
     ctx.fillStyle = grd;
     ctx.fillRect(0, 0, 64, 32);
     envTex.needsUpdate = true;
-  }, [tod, scene, uniforms, envTex]);
+  }, [tod, scene, uniforms, envTex, fog]);
 
   // Keep the sky centred on the camera and the shadow frustum under the player.
   useFrame(({ camera }) => {

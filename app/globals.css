@@ -50,3 +50,65 @@ canvas {
     opacity: 1;
   }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+:focus-visible {
+  outline: 2px solid #f2c14e;
+  outline-offset: 2px;
+}
+
+.hud-chip {
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.hud-chip:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(242, 193, 78, 0.35);
+}
+
+.hud-chip:active {
+  transform: scale(0.97);
+}
+
+@media (max-width: 820px) {
+  .map-overlay {
+    grid-template-columns: 1fr !important;
+    grid-template-rows: minmax(220px, 42vh) minmax(0, 1fr);
+    padding: 16px !important;
+    gap: 14px !important;
+  }
+}
+
+.city-card {
+  display: block;
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.035);
+  backdrop-filter: blur(8px);
+  transition:
+    transform 0.22s ease,
+    border-color 0.22s ease,
+    box-shadow 0.22s ease;
+}
+
+.city-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(242, 193, 78, 0.35);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.35);
+}
+
+.city-card:focus-visible {
+  transform: translateY(-4px);
+  border-color: rgba(242, 193, 78, 0.55);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.35);
+}

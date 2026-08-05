@@ -7,6 +7,8 @@ export type Mode = 'walk' | 'fly';
 export type State = {
   locked: boolean;
   started: boolean;
+  /** User pressed Esc — show the pause menu. Distinct from map/help UI. */
+  paused: boolean;
   mode: Mode;
   /** 0 = midnight, 0.5 = noon. */
   timeOfDay: number;
@@ -15,18 +17,22 @@ export type State = {
   showHelp: boolean;
   /** Bumped to request a teleport. */
   travel: { id: string; seq: number } | null;
+  /** Bumped to re-request pointer lock after map travel or closing the map. */
+  resume: number;
   loaded: boolean;
 };
 
 let state: State = {
   locked: false,
   started: false,
+  paused: false,
   mode: 'walk',
   timeOfDay: 0.72, // late afternoon: long shadows off the Gateway
   nearest: null,
   showMap: false,
   showHelp: false,
   travel: null,
+  resume: 0,
   loaded: false,
 };
 
@@ -60,8 +66,21 @@ export function useStore<T>(selector: (s: State) => T): T {
 }
 
 let travelSeq = 0;
+let resumeSeq = 0;
+
+export function resumeExploring() {
+  setState({ paused: false, resume: ++resumeSeq });
+}
+
+export function closeMap() {
+  const st = getState();
+  setState({ showMap: false });
+  if (st.started && !st.paused) resumeExploring();
+}
+
 export function travelTo(id: string) {
-  setState({ travel: { id, seq: ++travelSeq }, showMap: false });
+  setState({ travel: { id, seq: ++travelSeq }, showMap: false, paused: false });
+  resumeExploring();
 }
 
 /**

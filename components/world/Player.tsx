@@ -4,9 +4,10 @@ import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
 import { PointerLockControls } from '@react-three/drei';
+import type { PointerLockControls as PointerLockControlsType } from 'three-stdlib';
 import { groundAt, resolve, EYE, SEA_LEVEL } from '@/lib/mumbai/physics';
 import { LANDMARKS, landmarkWorld } from '@/lib/mumbai/landmarks';
-import { getState, setState, live, useStore } from '@/lib/store';
+import { getState, setState, live, useStore, closeMap } from '@/lib/store';
 import { bearing } from '@/lib/geo';
 
 const KEYS: Record<string, string> = {
@@ -25,10 +26,16 @@ const KEYS: Record<string, string> = {
   ControlLeft: 'down',
 };
 
+function releasePointer() {
+  if (document.pointerLockElement) document.exitPointerLock();
+}
+
 export function Player() {
   const { camera } = useThree();
   const mode = useStore((s) => s.mode);
   const travel = useStore((s) => s.travel);
+  const resume = useStore((s) => s.resume);
+  const controlsRef = useRef<PointerLockControlsType | null>(null);
 
   const keys = useRef<Record<string, boolean>>({});
   const vel = useRef(new THREE.Vector3());
@@ -38,6 +45,9 @@ export function Player() {
 
   const fwd = useMemo(() => new THREE.Vector3(), []);
   const right = useMemo(() => new THREE.Vector3(), []);
+  const flat = useMemo(() => new THREE.Vector3(), []);
+  const wish = useMemo(() => new THREE.Vector3(), []);
+  const target = useMemo(() => new THREE.Vector3(), []);
 
   // Start at the Gateway, looking west at the arch with the Taj behind it.
   useEffect(() => {
@@ -49,18 +59,46 @@ export function Player() {
   }, [camera]);
 
   useEffect(() => {
+    if (!resume) return;
+    const id = requestAnimationFrame(() => controlsRef.current?.lock());
+    return () => cancelAnimationFrame(id);
+  }, [resume]);
+
+  useEffect(() => {
     const down = (e: KeyboardEvent) => {
+      const st = getState();
+      if (e.code === 'Escape') {
+        if (st.showMap) closeMap();
+        else if (st.showHelp) setState({ showHelp: false });
+        return;
+      }
+
       const k = KEYS[e.code];
       if (k) {
+        if (!st.locked || st.showMap || st.showHelp) return;
         keys.current[k] = true;
         if (e.code === 'Space') e.preventDefault();
       }
-      if (e.code === 'KeyF') setState({ mode: getState().mode === 'fly' ? 'walk' : 'fly' });
-      if (e.code === 'KeyM') setState({ showMap: !getState().showMap });
-      if (e.code === 'Slash' || e.code === 'KeyH')
-        setState({ showHelp: !getState().showHelp });
-      if (e.code === 'BracketLeft') setState({ timeOfDay: (getState().timeOfDay + 0.95) % 1 });
-      if (e.code === 'BracketRight') setState({ timeOfDay: (getState().timeOfDay + 0.05) % 1 });
+
+      if (st.showMap || st.showHelp) return;
+
+      if (e.code === 'KeyF') setState({ mode: st.mode === 'fly' ? 'walk' : 'fly' });
+      if (e.code === 'KeyM') {
+        if (st.showMap) closeMap();
+        else {
+          setState({ showMap: true });
+          releasePointer();
+        }
+      }
+      if (e.code === 'Slash' || e.code === 'KeyH') {
+        if (st.showHelp) setState({ showHelp: false });
+        else {
+          setState({ showHelp: true });
+          releasePointer();
+        }
+      }
+      if (e.code === 'BracketLeft') setState({ timeOfDay: (st.timeOfDay + 0.95) % 1 });
+      if (e.code === 'BracketRight') setState({ timeOfDay: (st.timeOfDay + 0.05) % 1 });
     };
     const up = (e: KeyboardEvent) => {
       const k = KEYS[e.code];
@@ -94,16 +132,39 @@ export function Player() {
   useFrame((_, rawDt) => {
     const dt = Math.min(rawDt, 0.05);
     const st = getState();
+    const active = st.locked && !st.showMap && !st.showHelp;
+
+    if (!active) {
+      vel.current.set(0, 0, 0);
+      live.x = camera.position.x;
+      live.y = camera.position.y;
+      live.z = camera.position.z;
+      live.speed = 0;
+      live.inWater = false;
+      live.altitude = camera.position.y - groundAt(camera.position.x, camera.position.z).y;
+      camera.getWorldDirection(fwd);
+      live.heading = bearing(fwd.x, fwd.z);
+
+      fpsAcc.current.t += rawDt;
+      fpsAcc.current.n++;
+      if (fpsAcc.current.t > 0.5) {
+        live.fps = Math.round(fpsAcc.current.n / fpsAcc.current.t);
+        fpsAcc.current = { t: 0, n: 0 };
+      }
+      return;
+    }
+
     const fly = st.mode === 'fly';
     const sprint = keys.current.sprint;
 
     camera.getWorldDirection(fwd);
-    const flat = fly ? fwd.clone() : new THREE.Vector3(fwd.x, 0, fwd.z);
+    if (fly) flat.copy(fwd);
+    else flat.set(fwd.x, 0, fwd.z);
     if (flat.lengthSq() < 1e-6) flat.set(0, 0, -1);
     flat.normalize();
     right.set(flat.z, 0, -flat.x).normalize();
 
-    const wish = new THREE.Vector3();
+    wish.set(0, 0, 0);
     if (keys.current.f) wish.add(flat);
     if (keys.current.b) wish.sub(flat);
     if (keys.current.r) wish.sub(right);
@@ -119,11 +180,11 @@ export function Player() {
 
     if (fly) {
       const speed = sprint ? 260 : 70;
-      vel.current.lerp(wish.multiplyScalar(speed), 1 - Math.pow(0.0005, dt));
+      vel.current.lerp(target.copy(wish).multiplyScalar(speed), 1 - Math.pow(0.0005, dt));
       camera.position.addScaledVector(vel.current, dt);
     } else {
       const speed = inWater ? 4.2 : sprint ? 17 : 6.2;
-      const target = wish.clone().multiplyScalar(speed);
+      target.copy(wish).multiplyScalar(speed);
       const accel = onGround.current || inWater ? 12 : 3;
       vel.current.x = THREE.MathUtils.damp(vel.current.x, target.x, accel, dt);
       vel.current.z = THREE.MathUtils.damp(vel.current.z, target.z, accel, dt);
@@ -194,9 +255,17 @@ export function Player() {
 
   return (
     <PointerLockControls
+      ref={controlsRef}
       selector="#lock-target"
-      onLock={() => setState({ locked: true, started: true })}
-      onUnlock={() => setState({ locked: false })}
+      onLock={() => setState({ locked: true, started: true, paused: false })}
+      onUnlock={() => {
+        const st = getState();
+        if (st.showMap || st.showHelp || !st.started) {
+          setState({ locked: false });
+          return;
+        }
+        setState({ locked: false, paused: true });
+      }}
     />
   );
 }

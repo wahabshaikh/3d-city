@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useStore, setState, live, travelTo, getState } from '@/lib/store';
-import { LANDMARKS, LANDMARKS_BY_ID, landmarkWorld } from '@/lib/mumbai/landmarks';
+import { useStore, setState, live, travelTo, closeMap, getState } from '@/lib/store';
+import { LANDMARKS, LANDMARKS_BY_ID } from '@/lib/mumbai/landmarks';
 import { compassLabel } from '@/lib/geo';
 import { MiniMap, BigMap } from './CityMap';
 
@@ -21,16 +21,20 @@ export function Hud() {
   const loaded = useStore((s) => s.loaded);
   const showMap = useStore((s) => s.showMap);
   const showHelp = useStore((s) => s.showHelp);
+  const paused = useStore((s) => s.paused);
+  const welcome = !started;
 
   return (
     <>
-      <Crosshair visible={locked} />
-      <TopBar />
+      <Crosshair visible={locked && !showMap && !showHelp} />
+      {!welcome && <TopBar />}
       <LandmarkCard />
-      <BottomRight />
+      {!welcome && <BottomRight />}
       {showMap && <MapOverlay />}
       {showHelp && <HelpOverlay />}
-      {(!started || !locked) && <StartOverlay started={started} loaded={loaded} />}
+      {(welcome || paused) && !showMap && !showHelp && (
+        <StartOverlay started={started} loaded={loaded} />
+      )}
     </>
   );
 }
@@ -197,6 +201,10 @@ function LandmarkCard() {
   );
 }
 
+function releasePointer() {
+  if (document.pointerLockElement) document.exitPointerLock();
+}
+
 function BottomRight() {
   const mode = useStore((s) => s.mode);
   return (
@@ -214,12 +222,26 @@ function BottomRight() {
       <div style={{ ...panel, padding: 8, lineHeight: 0 }}>
         <MiniMap />
       </div>
-      <div style={{ display: 'flex', gap: 8 }}>
-        <Chip onClick={() => setState({ showMap: true })}>Map · M</Chip>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+        <Chip
+          onClick={() => {
+            setState({ showMap: true });
+            releasePointer();
+          }}
+        >
+          Map · M
+        </Chip>
         <Chip onClick={() => setState({ mode: mode === 'fly' ? 'walk' : 'fly' })}>
           {mode === 'fly' ? 'Walk · F' : 'Fly · F'}
         </Chip>
-        <Chip onClick={() => setState({ showHelp: true })}>Keys · H</Chip>
+        <Chip
+          onClick={() => {
+            releasePointer();
+            setState({ showHelp: true });
+          }}
+        >
+          Keys · H
+        </Chip>
       </div>
     </div>
   );
@@ -228,7 +250,9 @@ function BottomRight() {
 function Chip({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
   return (
     <button
+      type="button"
       onClick={onClick}
+      className="hud-chip"
       style={{
         ...panel,
         padding: '7px 12px',
@@ -248,6 +272,7 @@ function MapOverlay() {
   const tod = useStore((s) => s.timeOfDay);
   return (
     <div
+      className="map-overlay"
       style={{
         position: 'fixed',
         inset: 0,
@@ -260,7 +285,7 @@ function MapOverlay() {
         animation: 'fadeUp .2s ease both',
       }}
       onClick={(e) => {
-        if (e.target === e.currentTarget) setState({ showMap: false });
+        if (e.target === e.currentTarget) closeMap();
       }}
     >
       <div style={{ ...panel, overflow: 'hidden', minHeight: 0 }}>
@@ -271,7 +296,8 @@ function MapOverlay() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h2 style={{ margin: 0, fontSize: 18 }}>Mumbai</h2>
           <button
-            onClick={() => setState({ showMap: false })}
+            type="button"
+            onClick={() => closeMap()}
             style={{
               background: 'none',
               border: 'none',
@@ -317,6 +343,7 @@ function MapOverlay() {
               ['Night', 0.02],
             ].map(([label, v]) => (
               <button
+                type="button"
                 key={label as string}
                 onClick={() => setState({ timeOfDay: v as number })}
                 style={{
@@ -349,6 +376,7 @@ function MapOverlay() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {LANDMARKS.map((l) => (
             <button
+              type="button"
               key={l.id}
               onClick={() => travelTo(l.id)}
               style={{
@@ -397,35 +425,80 @@ function HelpOverlay() {
         placeItems: 'center',
         background: 'rgba(6,4,10,.7)',
         backdropFilter: 'blur(5px)',
+        padding: 20,
       }}
       onClick={() => setState({ showHelp: false })}
     >
-      <div style={{ ...panel, padding: 26, width: 380 }}>
-        <h2 style={{ margin: '0 0 16px', fontSize: 18 }}>Controls</h2>
-        {KEYMAP.map(([k, v]) => (
-          <div
-            key={k}
+      <div
+        style={{ ...panel, padding: 26, width: 380, maxWidth: '100%' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h2 style={{ margin: 0, fontSize: 18 }}>Controls</h2>
+          <button
+            type="button"
+            onClick={() => setState({ showHelp: false })}
             style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              padding: '7px 0',
-              borderTop: '1px solid rgba(255,255,255,.07)',
-              fontSize: 13.5,
+              background: 'none',
+              border: 'none',
+              color: 'rgba(244,238,230,.5)',
+              cursor: 'pointer',
+              fontSize: 18,
+              lineHeight: 1,
             }}
+            aria-label="Close"
           >
-            <span style={{ color: gold, fontFamily: 'ui-monospace, monospace' }}>{k}</span>
-            <span style={{ color: 'rgba(244,238,230,.7)' }}>{v}</span>
-          </div>
-        ))}
+            ✕
+          </button>
+        </div>
+        <div style={{ marginTop: 16 }}>
+          {KEYMAP.map(([k, v]) => (
+            <div
+              key={k}
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                padding: '7px 0',
+                borderTop: '1px solid rgba(255,255,255,.07)',
+                fontSize: 13.5,
+              }}
+            >
+              <span style={{ color: gold, fontFamily: 'ui-monospace, monospace' }}>{k}</span>
+              <span style={{ color: 'rgba(244,238,230,.7)' }}>{v}</span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
 }
 
 function StartOverlay({ started, loaded }: { started: boolean; loaded: boolean }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.code !== 'Enter' || !loaded) return;
+      const st = getState();
+      if (st.locked || st.showMap || st.showHelp) return;
+      document.getElementById('lock-target')?.click();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [loaded]);
+
+  const btn: React.CSSProperties = {
+    ...panel,
+    padding: '11px 20px',
+    fontSize: 14,
+    fontWeight: 600,
+    cursor: loaded ? 'pointer' : 'not-allowed',
+    font: 'inherit',
+    fontFamily: 'inherit',
+    letterSpacing: '.02em',
+    opacity: loaded ? 1 : 0.5,
+  };
+
   return (
     <div
-      id="lock-target"
       style={{
         position: 'fixed',
         inset: 0,
@@ -435,11 +508,21 @@ function StartOverlay({ started, loaded }: { started: boolean; loaded: boolean }
           ? 'rgba(6,4,10,.55)'
           : 'radial-gradient(900px 600px at 50% 40%, rgba(58,35,80,.6), rgba(6,4,10,.94))',
         backdropFilter: 'blur(6px)',
-        cursor: loaded ? 'pointer' : 'progress',
-        textAlign: 'center',
+        padding: 24,
+        pointerEvents: 'none',
       }}
     >
-      <div style={{ animation: 'fadeUp .5s ease both', padding: 24 }}>
+      <div
+        style={{
+          ...panel,
+          pointerEvents: 'auto',
+          animation: 'fadeUp .5s ease both',
+          padding: started ? '28px 32px 26px' : '32px 36px 30px',
+          maxWidth: started ? 380 : 520,
+          width: '100%',
+          textAlign: 'center',
+        }}
+      >
         {!started && (
           <>
             <div
@@ -455,7 +538,7 @@ function StartOverlay({ started, loaded }: { started: boolean; loaded: boolean }
             <h1
               style={{
                 margin: '14px 0 0',
-                fontSize: 'clamp(46px,9vw,86px)',
+                fontSize: 'clamp(40px,8vw,72px)',
                 letterSpacing: '-0.04em',
                 lineHeight: 1,
                 fontWeight: 800,
@@ -466,8 +549,8 @@ function StartOverlay({ started, loaded }: { started: boolean; loaded: boolean }
             <div style={{ fontSize: 22, color: 'rgba(244,238,230,.45)', marginTop: 8 }}>मुंबई</div>
             <p
               style={{
-                margin: '20px auto 0',
-                maxWidth: 460,
+                margin: '18px auto 0',
+                maxWidth: 420,
                 fontSize: 15,
                 lineHeight: 1.65,
                 color: 'rgba(244,238,230,.6)',
@@ -475,43 +558,83 @@ function StartOverlay({ started, loaded }: { started: boolean; loaded: boolean }
             >
               You start on Apollo Bunder, facing the Gateway of India with the Taj behind
               it. Marine Drive is fifteen minutes north-west on foot; the Sea Link is
-              further, so press <b style={{ color: gold }}>M</b> when you want to jump.
+              further — open the map when you want to jump.
             </p>
           </>
         )}
-        {started && <h2 style={{ margin: 0, fontSize: 26 }}>Paused</h2>}
+
+        {started && (
+          <>
+            <h2 style={{ margin: 0, fontSize: 26 }}>Paused</h2>
+            <p style={{ margin: '10px 0 0', fontSize: 14, color: 'rgba(244,238,230,.5)' }}>
+              Esc released the cursor. Pick up where you left off, open the map, or head
+              home.
+            </p>
+          </>
+        )}
 
         <div
           style={{
-            marginTop: 28,
-            display: 'inline-flex',
-            padding: '13px 26px',
-            borderRadius: 999,
-            border: `1px solid ${loaded ? gold : 'rgba(255,255,255,.2)'}`,
-            color: loaded ? gold : 'rgba(244,238,230,.45)',
-            fontSize: 14.5,
-            letterSpacing: '.04em',
+            marginTop: 24,
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 10,
+            justifyContent: 'center',
           }}
         >
-          {loaded ? (started ? 'Click to resume' : 'Click to explore') : 'Building the city…'}
+          <button
+            id="lock-target"
+            type="button"
+            disabled={!loaded}
+            style={{
+              ...btn,
+              background: loaded ? 'rgba(242,193,78,.14)' : 'transparent',
+              borderColor: loaded ? 'rgba(242,193,78,.55)' : 'rgba(255,255,255,.12)',
+              color: loaded ? gold : 'rgba(244,238,230,.45)',
+            }}
+          >
+            {loaded
+              ? started
+                ? 'Resume exploring'
+                : 'Start exploring'
+              : 'Building the city…'}
+          </button>
+
+          {started && loaded && (
+            <button
+              type="button"
+              className="hud-chip"
+              style={{ ...btn, color: 'rgba(244,238,230,.85)' }}
+              onClick={() => setState({ showMap: true })}
+            >
+              Open map
+            </button>
+          )}
         </div>
 
-        <div
-          style={{
-            marginTop: 22,
-            fontSize: 12.5,
-            color: 'rgba(244,238,230,.38)',
-            letterSpacing: '.05em',
-          }}
-        >
-          W A S D to walk · Shift to run · F to fly · M for the map
-        </div>
+        {!started && (
+          <div
+            style={{
+              marginTop: 18,
+              fontSize: 12.5,
+              color: 'rgba(244,238,230,.38)',
+              letterSpacing: '.05em',
+            }}
+          >
+            W A S D to walk · Shift to run · F to fly · M for the map
+          </div>
+        )}
 
-        <div style={{ marginTop: 26 }}>
+        <div style={{ marginTop: 22 }}>
           <Link
             href="/"
-            style={{ fontSize: 12.5, color: 'rgba(244,238,230,.4)' }}
-            onClick={(e) => e.stopPropagation()}
+            className="hud-chip"
+            style={{
+              ...btn,
+              display: 'inline-block',
+              color: 'rgba(244,238,230,.65)',
+              textDecoration: 'none',
+            }}
           >
             ← All cities
           </Link>
