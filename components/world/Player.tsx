@@ -7,7 +7,7 @@ import { PointerLockControls } from '@react-three/drei';
 import type { PointerLockControls as PointerLockControlsType } from 'three-stdlib';
 import { groundAt, resolve, EYE, SEA_LEVEL } from '@/lib/mumbai/physics';
 import { LANDMARKS, landmarkWorld } from '@/lib/mumbai/landmarks';
-import { getState, setState, live, useStore, closeMap } from '@/lib/store';
+import { getState, setState, live, useStore, closeMap, startTour } from '@/lib/store';
 import { bearing } from '@/lib/geo';
 
 const KEYS: Record<string, string> = {
@@ -67,6 +67,12 @@ export function Player() {
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       const st = getState();
+      // The tour owns the keyboard while it runs; it binds its own handlers.
+      if (st.tour !== null) return;
+      if (e.code === 'KeyT') {
+        startTour();
+        return;
+      }
       if (e.code === 'Escape') {
         if (st.showMap) closeMap();
         else if (st.showHelp) setState({ showHelp: false });

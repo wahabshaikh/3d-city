@@ -62,9 +62,54 @@ function drawFacade(kind: FacadeKind, seed: number) {
       const y = cy * ch;
 
       if (kind === 'slum') {
-        if (r() < 0.45) {
-          g.fillStyle = '#2b2723';
-          g.fillRect(x + cw * 0.3, y + ch * 0.35, cw * 0.35, ch * 0.5);
+        // A basti wall is not a blank plane with a hole in it: it is patched
+        // block and render, a small barred window, a doorway with a curtain
+        // over it, a meter box and a run of cable.
+        for (let k = 0; k < 5; k++) {
+          g.fillStyle = `rgba(${140 + r() * 90},${128 + r() * 84},${112 + r() * 74},${0.08 + r() * 0.2})`;
+          g.fillRect(x + r() * cw, y + r() * ch, cw * (0.12 + r() * 0.4), ch * (0.08 + r() * 0.3));
+        }
+        if (r() < 0.5) {
+          // window
+          const ww = cw * 0.24;
+          const wh = ch * 0.2;
+          const wx = x + cw * (0.14 + r() * 0.5);
+          const wy = y + ch * 0.24;
+          g.fillStyle = '#26221e';
+          g.fillRect(wx, wy, ww, wh);
+          g.strokeStyle = 'rgba(190,186,176,.8)';
+          g.lineWidth = 2;
+          g.strokeRect(wx, wy, ww, wh);
+          for (let b = 1; b < 3; b++) {
+            g.beginPath();
+            g.moveTo(wx + (ww * b) / 3, wy);
+            g.lineTo(wx + (ww * b) / 3, wy + wh);
+            g.stroke();
+          }
+        } else {
+          // doorway, curtained
+          const dw = cw * 0.2;
+          const dh = ch * 0.44;
+          const dx = x + cw * (0.2 + r() * 0.45);
+          const dy = y + ch * (1 - 0.46);
+          g.fillStyle = '#211d19';
+          g.fillRect(dx, dy, dw, dh);
+          const hues = ['#b8443a', '#2f6a9a', '#c8a03a', '#3f8a5c'];
+          g.fillStyle = hues[Math.floor(r() * hues.length)];
+          g.globalAlpha = 0.8;
+          g.fillRect(dx, dy, dw, dh * 0.62);
+          g.globalAlpha = 1;
+        }
+        // meter box and the cable that runs to it
+        if (r() < 0.4) {
+          g.fillStyle = 'rgba(70,66,58,.8)';
+          g.fillRect(x + cw * 0.72, y + ch * 0.3, cw * 0.1, ch * 0.12);
+          g.strokeStyle = 'rgba(40,36,32,.6)';
+          g.lineWidth = 2;
+          g.beginPath();
+          g.moveTo(x, y + ch * 0.2);
+          g.lineTo(x + cw * 0.77, y + ch * 0.3);
+          g.stroke();
         }
         continue;
       }

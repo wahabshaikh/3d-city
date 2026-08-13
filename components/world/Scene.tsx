@@ -14,6 +14,7 @@ import { StreetLife } from './StreetLife';
 import { Landmarks } from './Landmarks';
 import { Traffic } from './Traffic';
 import { Player } from './Player';
+import { TourDirector } from './TourDirector';
 import { setState } from '@/lib/store';
 
 function Ready() {
@@ -49,6 +50,7 @@ export function Scene() {
       <StreetLife />
       <Traffic />
       <Player />
+      <TourDirector />
       <Ready />
     </>
   );
