@@ -1,11 +1,12 @@
 'use client';
 
-import { useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { buildWorld, chunk, type Building } from '@/lib/mumbai/world';
 import { signboardTexture } from '@/lib/textures';
+import { useStore } from '@/lib/store';
 import { materials } from './materials';
 
 /**
@@ -113,7 +114,9 @@ const GOODS = [0xd84b2a, 0xe8a22a, 0x4f9a34, 0xc8324a, 0xe8d24a];
 
 export function StreetLife() {
   const m = materials();
+  const tod = useStore((s) => s.timeOfDay);
   const swayRef = useRef<{ value: number }[]>([]);
+  const boards = useRef<THREE.MeshStandardMaterial[]>([]);
 
   const meshes = useMemo(() => {
     const world = buildWorld();
@@ -203,6 +206,7 @@ export function StreetLife() {
           emissiveIntensity: 0,
         })
     );
+    boards.current = boardMats;
 
     for (const cell of chunk(fronts, 600)) {
       for (let art = 0; art < boardMats.length; art++) {
@@ -249,6 +253,14 @@ export function StreetLife() {
   useFrame(({ clock }) => {
     for (const u of swayRef.current) u.value = clock.elapsedTime;
   });
+
+  // Shop boards are backlit, and a Mumbai street after dark is lit as much by
+  // its signage as by its lamps.
+  useEffect(() => {
+    const dusk = tod < 0.29 ? 1 - tod / 0.29 : tod > 0.73 ? (tod - 0.73) / 0.13 : 0;
+    const k = Math.max(0, Math.min(1, dusk));
+    for (const mat of boards.current) mat.emissiveIntensity = k * 0.85;
+  }, [tod, meshes]);
 
   return (
     <group>

@@ -80,10 +80,10 @@ export const TOUR: Stop[] = [
     script:
       'Down at street level, which is where Mumbai actually happens. The causeway was built in 1838 to tie Colaba island to Bombay island, and it has been a market ever since — hawkers on the footpath, shopfronts behind them, and a painted board over every one of them. Look at the ground floors: this ribbon of hand-lettered signage is as much the city\'s architecture as anything with a dome on it.',
     tod: 0.345,
-    // On the carriageway itself, walking north up the causeway.
-    from: m(18.91388, 72.82759, 1.75),
-    to: m(18.91941, 72.83162, 1.75),
-    look: m(18.92266, 72.83293, 5),
+    // Down the middle of a Colaba lane, snapped to the generated centreline.
+    from: m(18.92019, 72.82741, 1.75),
+    to: m(18.91501, 72.82374, 1.75),
+    look: m(18.9076, 72.81848, 5),
     seconds: 17,
   },
   {
@@ -123,9 +123,12 @@ export const TOUR: Stop[] = [
     script:
       'Eighty-five metres of buff Kurla stone over the Oval Maidan, modelled on Big Ben by an architect who never came to see the site. It was paid for by the broker Premchand Roychand on one condition: that it carry his mother\'s name. Rajabai was blind, and the chimes told her when to take her evening meal.',
     tod: 0.465,
-    from: m(18.9296, 72.827, 34),
-    to: m(18.9298, 72.8284, 24),
-    look: m(18.92964, 72.82999, 52),
+    // Kept over the Oval Maidan, which is the one piece of ground here
+    // guaranteed to be clear, tilting up the tower as it comes.
+    from: m(18.929, 72.8258, 60),
+    to: m(18.9294, 72.8274, 50),
+    look: m(18.92964, 72.82999, 46),
+    lookTo: m(18.92964, 72.82999, 74),
     seconds: 15,
   },
   {
