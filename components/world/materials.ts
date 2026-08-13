@@ -108,11 +108,30 @@ export function materials() {
     bestRed: new THREE.MeshStandardMaterial({ color: 0xb0322a, roughness: 0.55 }),
     trainBlue: new THREE.MeshStandardMaterial({ color: 0x2c4a80, roughness: 0.55 }),
 
+    // The sheet textures are drawn near-white so they can be tinted. `tin` and
+    // `tarp` carry a default weathering; the `*Sheet` pair is left white for
+    // instanced roofs, which set their own colour per sheet.
     tin: triplanar(
-      new THREE.MeshStandardMaterial({ map: tinTexture(), roughness: 0.68, metalness: 0.28 }),
+      new THREE.MeshStandardMaterial({
+        map: tinTexture(),
+        color: 0x6e685d,
+        roughness: 0.68,
+        metalness: 0.28,
+      }),
       0.42
     ),
-    tarp: triplanar(new THREE.MeshStandardMaterial({ map: tarpTexture(), roughness: 0.88 }), 0.3),
+    tinSheet: triplanar(
+      new THREE.MeshStandardMaterial({ map: tinTexture(), roughness: 0.7, metalness: 0.22 }),
+      0.42
+    ),
+    tarp: triplanar(
+      new THREE.MeshStandardMaterial({ map: tarpTexture(), color: 0x3f6f96, roughness: 0.88 }),
+      0.3
+    ),
+    tarpSheet: triplanar(
+      new THREE.MeshStandardMaterial({ map: tarpTexture(), roughness: 0.88 }),
+      0.3
+    ),
 
     foliage: new THREE.MeshStandardMaterial({ color: 0x39602f, roughness: 0.92 }),
     foliageDry: new THREE.MeshStandardMaterial({ color: 0x4f6c30, roughness: 0.92 }),

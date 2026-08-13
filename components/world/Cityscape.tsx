@@ -105,23 +105,29 @@ export function Cityscape() {
         meshes.push(mesh);
       }
 
-      // corrugated and tarpaulin roofs
+      // Corrugated and tarpaulin roofs, no two sheets the same shade. The
+      // pitch is shallow and uneven — these are sheets weighted down with
+      // bricks, not a roof anybody set out to build.
       for (const roof of ['tin', 'tarp'] as const) {
         const list = cells.filter((b) => b.roof === roof);
         if (!list.length) continue;
         const mesh = new THREE.InstancedMesh(
           pyramid,
-          roof === 'tin' ? m.tin : m.tarp,
+          roof === 'tin' ? m.tinSheet : m.tarpSheet,
           list.length
         );
         list.forEach((b, i) => {
-          dummy.position.set(b.x, b.h + (Math.max(b.w, b.d) * 0.16) / 2, b.z);
+          const span = Math.max(b.w, b.d);
+          const rise = span * (0.09 + ((b.x * 7.3 + b.z * 3.1) % 1) * 0.11);
+          dummy.position.set(b.x, b.h + rise / 2, b.z);
           dummy.rotation.set(0, b.rot + Math.PI / 4, 0);
-          dummy.scale.set(Math.max(b.w, b.d) * 1.02, Math.max(b.w, b.d) * 0.16, Math.max(b.w, b.d) * 1.02);
+          dummy.scale.set(span * 1.04, rise, span * 1.04);
           dummy.updateMatrix();
           mesh.setMatrixAt(i, dummy.matrix);
+          mesh.setColorAt(i, colour.setHex(b.roofTint));
         });
         mesh.instanceMatrix.needsUpdate = true;
+        if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
         mesh.castShadow = true;
         meshes.push(mesh);
       }
@@ -163,12 +169,13 @@ export function Cityscape() {
     return { meshes, facadeMats };
   }, [m]);
 
-  // Windows come on after dark.
+  // Windows come on after dark, and after dark they are the only thing lighting
+  // the city — so they have to carry far more than a hint of glow.
   useEffect(() => {
-    const night = tod < 0.27 || tod > 0.76;
-    const k = night ? (tod < 0.27 ? 1 - tod / 0.27 : (tod - 0.76) / 0.24) : 0;
+    const night = tod < 0.29 || tod > 0.75;
+    const k = night ? (tod < 0.29 ? 1 - tod / 0.29 : (tod - 0.75) / 0.13) : 0;
     for (const mat of facadeMats.values()) {
-      mat.emissiveIntensity = THREE.MathUtils.clamp(k, 0, 1) * 0.62;
+      mat.emissiveIntensity = THREE.MathUtils.clamp(k, 0, 1) * 1.35;
       mat.needsUpdate = false;
     }
   }, [tod, facadeMats]);

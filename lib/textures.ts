@@ -206,26 +206,42 @@ export function facadeLights(kind: FacadeKind) {
 
 /* -------------------------------- surfaces -------------------------------- */
 
+/**
+ * What is left between the buildings and the lanes: broken concrete, cement
+ * screed, compacted dirt and the odd patch of weed. Deliberately grey rather
+ * than sandy — Mumbai is paved, and a warm ground reads as desert from the air.
+ */
 export function groundTexture() {
   return memo('ground', () => {
     const { c, g } = canvas(512, 512);
     const r = mulberry32(4242);
-    g.fillStyle = '#5f5a4d';
+    g.fillStyle = '#585449';
     g.fillRect(0, 0, 512, 512);
     for (let i = 0; i < 5200; i++) {
       const v = r();
-      g.fillStyle = `rgba(${70 + v * 66},${66 + v * 62},${52 + v * 52},${0.08 + r() * 0.24})`;
+      g.fillStyle = `rgba(${68 + v * 58},${66 + v * 56},${60 + v * 50},${0.08 + r() * 0.24})`;
       g.fillRect(r() * 512, r() * 512, 1 + r() * 9, 1 + r() * 9);
     }
-    // scrub and the dusty green of the maidans — sparse, this is a paved city
-    for (let i = 0; i < 130; i++) {
-      g.fillStyle = `rgba(${62 + r() * 30},${72 + r() * 32},${48 + r() * 26},${0.08 + r() * 0.18})`;
+    // Slabs of screed and the joints between them.
+    for (let i = 0; i < 90; i++) {
+      const x = r() * 512;
+      const y = r() * 512;
+      const w = 22 + r() * 70;
+      const h = 22 + r() * 70;
+      g.fillStyle = `rgba(${110 + r() * 50},${106 + r() * 48},${98 + r() * 44},${0.05 + r() * 0.12})`;
+      g.fillRect(x, y, w, h);
+      g.strokeStyle = 'rgba(38,36,32,.16)';
+      g.lineWidth = 1.4;
+      g.strokeRect(x, y, w, h);
+    }
+    // Scrub in the cracks — sparse, this is a paved city.
+    for (let i = 0; i < 110; i++) {
+      g.fillStyle = `rgba(${58 + r() * 26},${68 + r() * 30},${44 + r() * 22},${0.09 + r() * 0.2})`;
       g.beginPath();
-      g.ellipse(r() * 512, r() * 512, 4 + r() * 26, 4 + r() * 20, r() * 3, 0, 7);
+      g.ellipse(r() * 512, r() * 512, 3 + r() * 18, 3 + r() * 14, r() * 3, 0, 7);
       g.fill();
     }
-    const t = tex(c, 60);
-    return t;
+    return tex(c, 60);
   });
 }
 
@@ -264,6 +280,99 @@ export function roadTexture() {
     g.fillRect(121, 0, 3, 512);
     const t = new THREE.CanvasTexture(c);
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.anisotropy = 8;
+    t.colorSpace = THREE.SRGBColorSpace;
+    return t;
+  });
+}
+
+/**
+ * A local lane, drawn as a cross-section: footpath, kerb, carriageway, kerb,
+ * footpath. `u` runs across the lane and `v` along it, so one texture serves
+ * every width from a Fort side street to a Worli approach road.
+ */
+export function laneTexture() {
+  return memo('lane', () => {
+    const W = 128;
+    const H = 512;
+    const { c, g } = canvas(W, H);
+    const r = mulberry32(6161);
+    const walk = Math.round(W * 0.18); // footpath, each side
+
+    g.fillStyle = '#3a3733';
+    g.fillRect(0, 0, W, H);
+    // Worn asphalt: patches, repairs and the dark polish of the wheel tracks.
+    for (let i = 0; i < 2000; i++) {
+      const v = r();
+      g.fillStyle = `rgba(${72 + v * 62},${68 + v * 58},${62 + v * 54},${0.04 + r() * 0.2})`;
+      g.fillRect(walk + r() * (W - walk * 2), r() * H, 1 + r() * 7, 1 + r() * 9);
+    }
+    for (let i = 0; i < 26; i++) {
+      g.fillStyle = `rgba(20,18,16,${0.07 + r() * 0.16})`;
+      g.beginPath();
+      g.ellipse(walk + r() * (W - walk * 2), r() * H, 4 + r() * 20, 6 + r() * 40, 0, 0, 7);
+      g.fill();
+    }
+
+    // Footpaths: cast slabs, cracked, with the kerb painted at the edge.
+    for (const x0 of [0, W - walk]) {
+      g.fillStyle = '#87816f';
+      g.fillRect(x0, 0, walk, H);
+      for (let i = 0; i < 460; i++) {
+        const v = r();
+        g.fillStyle = `rgba(${120 + v * 70},${115 + v * 66},${100 + v * 60},${0.06 + r() * 0.22})`;
+        g.fillRect(x0 + r() * walk, r() * H, 1 + r() * 5, 1 + r() * 5);
+      }
+      g.fillStyle = 'rgba(50,46,40,.34)';
+      for (let y = 0; y < H; y += 26) g.fillRect(x0, y, walk, 1.6);
+    }
+    // Kerbstone, and the black-and-white barring Mumbai paints along it.
+    for (const x0 of [walk - 4, W - walk]) {
+      g.fillStyle = '#a49d8c';
+      g.fillRect(x0, 0, 4, H);
+      for (let y = 0; y < H; y += 44) {
+        g.fillStyle = 'rgba(28,26,24,.55)';
+        g.fillRect(x0, y, 4, 22);
+      }
+    }
+
+    // Centre line: broken, faded, and repainted often enough to still show.
+    g.fillStyle = 'rgba(228,214,150,.5)';
+    for (let y = 0; y < H; y += 76) g.fillRect(W / 2 - 2, y, 4, 40);
+
+    const t = new THREE.CanvasTexture(c);
+    t.wrapS = THREE.ClampToEdgeWrapping;
+    t.wrapT = THREE.RepeatWrapping;
+    t.anisotropy = 8;
+    t.colorSpace = THREE.SRGBColorSpace;
+    return t;
+  });
+}
+
+/** Dharavi's gullies: no kerb, no markings, no tarmac — rammed earth and slop. */
+export function gullyTexture() {
+  return memo('gully', () => {
+    const W = 64;
+    const H = 256;
+    const { c, g } = canvas(W, H);
+    const r = mulberry32(3131);
+    g.fillStyle = '#5c5346';
+    g.fillRect(0, 0, W, H);
+    for (let i = 0; i < 1400; i++) {
+      const v = r();
+      g.fillStyle = `rgba(${86 + v * 70},${78 + v * 62},${64 + v * 52},${0.06 + r() * 0.26})`;
+      g.fillRect(r() * W, r() * H, 1 + r() * 5, 1 + r() * 5);
+    }
+    // Standing water down the middle, where the drain should be.
+    for (let i = 0; i < 30; i++) {
+      g.fillStyle = `rgba(44,52,52,${0.12 + r() * 0.3})`;
+      g.beginPath();
+      g.ellipse(W / 2 + r() * 14 - 7, r() * H, 3 + r() * 9, 4 + r() * 16, 0, 0, 7);
+      g.fill();
+    }
+    const t = new THREE.CanvasTexture(c);
+    t.wrapS = THREE.ClampToEdgeWrapping;
+    t.wrapT = THREE.RepeatWrapping;
     t.anisotropy = 8;
     t.colorSpace = THREE.SRGBColorSpace;
     return t;
@@ -359,37 +468,59 @@ export function stoneTexture(key: string, base: string, mortar: string, courses 
   });
 }
 
+/**
+ * Corrugated iron. Drawn near-white so a per-instance tint decides whether a
+ * given sheet is still galvanised or has gone over to rust.
+ */
 export function tinTexture() {
   return memo('tin', () => {
     const { c, g } = canvas(256, 256);
     const r = mulberry32(515);
-    g.fillStyle = '#8a8378';
+    g.fillStyle = '#e6e0d4';
     g.fillRect(0, 0, 256, 256);
     for (let x = 0; x < 256; x += 10) {
-      g.fillStyle = 'rgba(255,255,255,.14)';
+      g.fillStyle = 'rgba(255,255,255,.3)';
       g.fillRect(x, 0, 4, 256);
-      g.fillStyle = 'rgba(0,0,0,.16)';
+      g.fillStyle = 'rgba(0,0,0,.2)';
       g.fillRect(x + 5, 0, 4, 256);
     }
-    for (let i = 0; i < 200; i++) {
-      g.fillStyle = `rgba(${130 + r() * 60},${70 + r() * 40},${34 + r() * 26},${0.1 + r() * 0.4})`;
+    // Rust blooms out from the fixings and the laps.
+    for (let i = 0; i < 240; i++) {
+      g.fillStyle = `rgba(${132 + r() * 52},${74 + r() * 38},${38 + r() * 24},${0.12 + r() * 0.42})`;
       g.beginPath();
       g.ellipse(r() * 256, r() * 256, 3 + r() * 16, 3 + r() * 12, 0, 0, 7);
       g.fill();
+    }
+    for (let i = 0; i < 60; i++) {
+      g.fillStyle = `rgba(58,54,48,${0.05 + r() * 0.16})`;
+      g.fillRect(r() * 256, r() * 256, 2 + r() * 24, 2 + r() * 40);
     }
     return tex(c, 1);
   });
 }
 
+/** Woven polypropylene sheet — the tint decides blue, green, grey or orange. */
 export function tarpTexture() {
   return memo('tarp', () => {
     const { c, g } = canvas(256, 256);
     const r = mulberry32(88);
-    g.fillStyle = '#2f6fae';
+    g.fillStyle = '#ddd8cd';
     g.fillRect(0, 0, 256, 256);
-    for (let i = 0; i < 900; i++) {
-      g.fillStyle = `rgba(${20 + r() * 60},${80 + r() * 70},${140 + r() * 90},${0.12 + r() * 0.3})`;
-      g.fillRect(r() * 256, r() * 256, 2 + r() * 30, 1 + r() * 5);
+    // Weave.
+    for (let i = 0; i < 256; i += 4) {
+      g.fillStyle = 'rgba(255,255,255,.28)';
+      g.fillRect(i, 0, 2, 256);
+      g.fillStyle = 'rgba(0,0,0,.1)';
+      g.fillRect(0, i, 256, 2);
+    }
+    // Creases where it was folded, and the dirt that collects in them.
+    for (let i = 0; i < 26; i++) {
+      g.fillStyle = `rgba(48,46,42,${0.06 + r() * 0.14})`;
+      g.fillRect(0, r() * 256, 256, 1 + r() * 4);
+    }
+    for (let i = 0; i < 340; i++) {
+      g.fillStyle = `rgba(${112 + r() * 90},${108 + r() * 86},${98 + r() * 78},${0.08 + r() * 0.24})`;
+      g.fillRect(r() * 256, r() * 256, 2 + r() * 26, 1 + r() * 5);
     }
     return tex(c, 1);
   });
@@ -435,6 +566,75 @@ export function hoardingTexture(i: number) {
     }
     g.fillStyle = 'rgba(0,0,0,.35)';
     g.fillRect(0, 232, 512, 24);
+    return tex(c, 1);
+  });
+}
+
+/**
+ * A painted shop board. Mumbai's ground floors are a continuous ribbon of
+ * these — flat colour, a name in Devanagari and again in Latin, and a line of
+ * small print underneath. Lettering is suggested with strokes rather than
+ * spelled out: at the distance you read these from, that is what you see.
+ */
+export function signboardTexture(i: number) {
+  return memo(`sign:${i}`, () => {
+    const W = 512;
+    const H = 128;
+    const { c, g } = canvas(W, H);
+    const r = mulberry32(4400 + i * 331);
+    const beds = ['#1c4f8a', '#0f6b4a', '#a8321f', '#c58a12', '#5c2f6e'];
+    const inks = ['#f4e6c2', '#ffffff', '#ffd98a', '#f6f2e6', '#ffe9c0'];
+    g.fillStyle = beds[i % beds.length];
+    g.fillRect(0, 0, W, H);
+    g.fillStyle = 'rgba(0,0,0,.22)';
+    g.fillRect(0, H - 12, W, 12);
+    g.fillStyle = inks[(i + 2) % inks.length];
+    g.fillRect(0, 0, W, 5);
+
+    const ink = inks[i % inks.length];
+
+    // Devanagari: a run of glyph bodies hung off a continuous headstroke.
+    const dvY = 30;
+    let x = 26;
+    g.fillStyle = ink;
+    g.fillRect(26, dvY - 15, W - 130, 5);
+    while (x < W - 110) {
+      const w = 12 + r() * 20;
+      g.fillRect(x, dvY - 10, 4.5, 20 + r() * 6);
+      if (r() < 0.55) g.fillRect(x, dvY + 6, w, 4.5);
+      if (r() < 0.4) g.fillRect(x + w - 5, dvY - 4, 4.5, 14);
+      x += w + 7;
+    }
+
+    // Latin below, smaller.
+    x = 26;
+    while (x < W - 150) {
+      const w = 8 + r() * 15;
+      g.fillStyle = ink;
+      g.globalAlpha = 0.86;
+      g.fillRect(x, 74, w, 13);
+      g.globalAlpha = 1;
+      x += w + 6;
+    }
+    // A phone number, always.
+    g.fillStyle = 'rgba(255,255,255,.6)';
+    for (let k = 0; k < 9; k++) g.fillRect(26 + k * 13, 100, 8, 9);
+
+    // The panel at the end that everyone paints their speciality on.
+    g.fillStyle = 'rgba(0,0,0,.28)';
+    g.fillRect(W - 104, 12, 90, H - 24);
+    for (let k = 0; k < 4; k++) {
+      g.fillStyle = inks[(i + k) % inks.length];
+      g.globalAlpha = 0.8;
+      g.fillRect(W - 94, 24 + k * 22, 30 + r() * 40, 11);
+      g.globalAlpha = 1;
+    }
+
+    // Sun, salt and monsoon.
+    for (let k = 0; k < 220; k++) {
+      g.fillStyle = `rgba(${30 + r() * 60},${28 + r() * 56},${24 + r() * 50},${0.04 + r() * 0.16})`;
+      g.fillRect(r() * W, r() * H, 1 + r() * 12, 1 + r() * 20);
+    }
     return tex(c, 1);
   });
 }
