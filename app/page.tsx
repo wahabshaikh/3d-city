@@ -36,7 +36,7 @@ export default function Home() {
                 animation: 'pulse 2s ease-in-out infinite',
               }}
             />
-            First-person · WebGL
+            Guided tour · First person · WebGL
           </div>
 
           <h1
@@ -48,7 +48,7 @@ export default function Home() {
               fontWeight: 800,
             }}
           >
-            Walk a real city.
+            Take the tour.
             <br />
             <span
               style={{
@@ -58,7 +58,7 @@ export default function Home() {
                 color: 'transparent',
               }}
             >
-              On foot. In 3D.
+              Then walk it yourself.
             </span>
           </h1>
 
@@ -71,9 +71,10 @@ export default function Home() {
               color: 'rgba(244,238,230,.66)',
             }}
           >
-            Landmarks modelled from their real architecture and placed at their real
-            coordinates, on a coastline traced from the actual shore. Pick a city and start
-            walking.
+            A guided tour that runs one day, dawn to dark, through sixteen stops — and
+            then hands you the camera. Landmarks modelled from their real architecture
+            and placed at their real coordinates, on a coastline traced from the actual
+            shore.
           </p>
         </header>
 
@@ -182,7 +183,7 @@ export default function Home() {
                     {city.population} · {city.founded}
                   </span>
                   <span style={{ color: city.palette.accent, fontWeight: 600 }}>
-                    Explore →
+                    Take the tour →
                   </span>
                 </div>
               </div>

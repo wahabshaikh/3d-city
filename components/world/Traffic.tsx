@@ -8,7 +8,8 @@ import { ROADS, RAIL_LINES, roadWorld, railWorld } from '@/lib/mumbai/roads';
 import { resample } from '@/lib/ribbon';
 import { SEA_LINK, SEA_LEVEL } from '@/lib/mumbai/physics';
 import { materials } from './materials';
-import { mulberry32, rand, pick } from '@/lib/rng';
+import { mulberry32, rand } from '@/lib/rng';
+import { buildWorld, chunk } from '@/lib/mumbai/world';
 import { geo } from '@/lib/geo';
 
 /* ------------------------------ vehicle bodies ---------------------------- */
@@ -271,8 +272,72 @@ export function Traffic() {
           />
         </group>
       ))}
+      <Parked geos={geos} wheels={wheels} />
       <LocalTrains />
       <HarbourBoats />
+    </group>
+  );
+}
+
+/**
+ * Everything that is not moving. Mumbai parks on the kerb, both sides, all day,
+ * and an empty lane reads as a film set the moment you look down it.
+ */
+function Parked({
+  geos,
+  wheels,
+}: {
+  geos: ReturnType<typeof taxi>[];
+  wheels: THREE.BufferGeometry[];
+}) {
+  const m = materials();
+
+  const meshes = useMemo(() => {
+    const bodyMats = [m.black, m.bestRed, m.black, m.whitewash];
+    const trimMats = [m.taxiYellow, m.whitewash, m.taxiYellow, m.glassDark];
+    // Private cars come in a hundred shades of white, silver and dusty red;
+    // taxis and autos do not get a choice.
+    const PAINT = [0xdedbd2, 0xc9c6bd, 0xb8bcc0, 0x8d99a3, 0x9c5a4a, 0x5f6b6f, 0xe2ddcd, 0x6f7a72];
+
+    const world = buildWorld();
+    const out: THREE.Object3D[] = [];
+    const dummy = new THREE.Object3D();
+    const colour = new THREE.Color();
+
+    for (const cell of chunk(world.parked, 700)) {
+      for (let t = 0; t < TYPES.length; t++) {
+        const list = cell.filter((p) => p.type === t);
+        if (!list.length) continue;
+        const body = new THREE.InstancedMesh(geos[t].lower, bodyMats[t], list.length);
+        const parts: THREE.InstancedMesh[] = [
+          body,
+          new THREE.InstancedMesh(geos[t].upper, trimMats[t], list.length),
+          new THREE.InstancedMesh(geos[t].glass, m.glassDark, list.length),
+          new THREE.InstancedMesh(wheels[t], m.black, list.length),
+        ];
+        list.forEach((p, i) => {
+          dummy.position.set(p.x, 0, p.z);
+          dummy.rotation.set(0, p.rot, 0);
+          dummy.scale.setScalar(1);
+          dummy.updateMatrix();
+          for (const mesh of parts) mesh.setMatrixAt(i, dummy.matrix);
+          if (t === 3)
+            body.setColorAt(i, colour.setHex(PAINT[Math.abs(Math.round(p.x + p.z * 3)) % PAINT.length]));
+        });
+        for (const mesh of parts) mesh.instanceMatrix.needsUpdate = true;
+        if (body.instanceColor) body.instanceColor.needsUpdate = true;
+        body.castShadow = true;
+        out.push(...parts);
+      }
+    }
+    return out;
+  }, [geos, wheels, m]);
+
+  return (
+    <group>
+      {meshes.map((o, i) => (
+        <primitive key={i} object={o} />
+      ))}
     </group>
   );
 }

@@ -20,6 +20,9 @@ export type State = {
   /** Bumped to re-request pointer lock after map travel or closing the map. */
   resume: number;
   loaded: boolean;
+  /** Index of the guided-tour stop, or null when free roaming. */
+  tour: number | null;
+  tourPlaying: boolean;
 };
 
 let state: State = {
@@ -34,6 +37,8 @@ let state: State = {
   travel: null,
   resume: 0,
   loaded: false,
+  tour: null,
+  tourPlaying: false,
 };
 
 const subs = new Set<() => void>();
@@ -79,8 +84,59 @@ export function closeMap() {
 }
 
 export function travelTo(id: string) {
-  setState({ travel: { id, seq: ++travelSeq }, showMap: false, paused: false });
+  setState({
+    travel: { id, seq: ++travelSeq },
+    showMap: false,
+    paused: false,
+    tour: null,
+    tourPlaying: false,
+  });
   resumeExploring();
+}
+
+/* ---------------------------------- tour ---------------------------------- */
+
+/**
+ * The tour drives the camera itself, so it runs with the pointer *unlocked* —
+ * that is what keeps the player controller's hands off the camera, and it lets
+ * the viewer use the panel without having to press Esc first.
+ */
+export function startTour(at = 0) {
+  if (document.pointerLockElement) document.exitPointerLock();
+  setState({
+    tour: at,
+    tourPlaying: true,
+    started: true,
+    paused: false,
+    showMap: false,
+    showHelp: false,
+    nearest: null,
+  });
+}
+
+/**
+ * Hands the camera back where the tour left it. Several stops are shot from a
+ * few hundred metres up, so drop the player into flight rather than into a
+ * fall.
+ */
+export function leaveTour() {
+  const st = getState();
+  setState({
+    tour: null,
+    tourPlaying: false,
+    paused: true,
+    mode: live.altitude > 14 ? 'fly' : st.mode,
+  });
+}
+
+/** Callers clamp to the itinerary; the store does not know how long it is. */
+export function tourGo(i: number) {
+  if (getState().tour === null) return;
+  setState({ tour: i, tourPlaying: true });
+}
+
+export function tourPlay(playing: boolean) {
+  setState({ tourPlaying: playing });
 }
 
 /**
@@ -101,4 +157,8 @@ export const live = {
   fps: 0,
   inWater: false,
   altitude: 0,
+  /** Tour: 0 = clear, 1 = black. The cut between one shot and the next. */
+  fade: 0,
+  /** Tour: 0..1 through the current shot, for the progress bar. */
+  stopProgress: 0,
 };

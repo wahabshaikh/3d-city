@@ -19,10 +19,19 @@ type Palette = {
 
 const c = (h: number) => new THREE.Color(h);
 
+/**
+ * A Mumbai night is not dark. The horizon carries a sodium-brown haze off eight
+ * million street lamps, but nothing up there is a key light — after sunset the
+ * only thing modelling a building is its own windows and the lamps below it.
+ */
 const KEYS: { t: number; p: Palette }[] = [
   {
     t: 0.0,
-    p: { zenith: c(0x070b1a), horizon: c(0x172038), sun: c(0x9fb4d8), ground: c(0x0a0d16), fog: c(0x0b1120), sunI: 0.12, ambI: 0.16 },
+    p: { zenith: c(0x05070f), horizon: c(0x241a1c), sun: c(0x9fb4d8), ground: c(0x07080d), fog: c(0x14100f), sunI: 0.04, ambI: 0.1 },
+  },
+  {
+    t: 0.16,
+    p: { zenith: c(0x080c1c), horizon: c(0x2c2020), sun: c(0x9fb4d8), ground: c(0x0a0d16), fog: c(0x18120f), sunI: 0.05, ambI: 0.12 },
   },
   {
     t: 0.24,
@@ -45,12 +54,16 @@ const KEYS: { t: number; p: Palette }[] = [
     p: { zenith: c(0x6b5a8c), horizon: c(0xf0a05c), sun: c(0xff9b4e), ground: c(0x6a4c36), fog: c(0xe0996a), sunI: 1.6, ambI: 0.55 },
   },
   {
-    t: 0.86,
-    p: { zenith: c(0x2e2c50), horizon: c(0xb05a48), sun: c(0xff7a44), ground: c(0x3a2c26), fog: c(0x9a5a4c), sunI: 0.6, ambI: 0.34 },
+    t: 0.845,
+    p: { zenith: c(0x2e2c50), horizon: c(0xb05a48), sun: c(0xff7a44), ground: c(0x3a2c26), fog: c(0x8a4e42), sunI: 0.45, ambI: 0.3 },
+  },
+  {
+    t: 0.885,
+    p: { zenith: c(0x121434), horizon: c(0x5c3630), sun: c(0xc06a44), ground: c(0x1c1616), fog: c(0x3e2622), sunI: 0.1, ambI: 0.17 },
   },
   {
     t: 1.0,
-    p: { zenith: c(0x070b1a), horizon: c(0x172038), sun: c(0x9fb4d8), ground: c(0x0a0d16), fog: c(0x0b1120), sunI: 0.12, ambI: 0.16 },
+    p: { zenith: c(0x05070f), horizon: c(0x241a1c), sun: c(0x9fb4d8), ground: c(0x07080d), fog: c(0x14100f), sunI: 0.04, ambI: 0.1 },
   },
 ];
 
@@ -123,6 +136,8 @@ export function SkyDome() {
   const { scene } = useThree();
   const sunRef = useRef<THREE.DirectionalLight>(null);
   const hemiRef = useRef<THREE.HemisphereLight>(null);
+  const domeRef = useRef<THREE.Mesh>(null);
+  const moonRef = useRef<THREE.DirectionalLight>(null);
 
   const uniforms = useMemo(
     () => ({
@@ -191,6 +206,9 @@ export function SkyDome() {
       hemiRef.current.color.copy(p.horizon);
       hemiRef.current.groundColor.copy(p.ground);
     }
+    // A cool overhead wash once the sun is down, so buildings keep an edge
+    // instead of flattening into silhouettes.
+    if (moonRef.current) moonRef.current.intensity = THREE.MathUtils.clamp(1 - p.sunI / 0.5, 0, 1) * 0.4;
 
     // repaint the env map with the current sky gradient
     const ctx = (envTex.image as HTMLCanvasElement).getContext('2d')!;
@@ -205,7 +223,10 @@ export function SkyDome() {
   }, [tod, scene, uniforms, envTex, fog]);
 
   // Keep the sky centred on the camera and the shadow frustum under the player.
+  // Mumbai is 7 km end to end in world units, so a sky pinned to the origin
+  // falls outside the far plane once you are up at Juhu looking back south.
   useFrame(({ camera }) => {
+    domeRef.current?.position.copy(camera.position);
     const s = sunRef.current;
     if (!s) return;
     s.target.position.set(camera.position.x, 0, camera.position.z);
@@ -217,10 +238,16 @@ export function SkyDome() {
 
   return (
     <>
-      <mesh material={mat} renderOrder={-1000} frustumCulled={false}>
-        <sphereGeometry args={[8200, 32, 20]} />
+      <mesh ref={domeRef} material={mat} renderOrder={-1000} frustumCulled={false}>
+        <sphereGeometry args={[8000, 32, 20]} />
       </mesh>
       <hemisphereLight ref={hemiRef} intensity={0.8} />
+      <directionalLight
+        ref={moonRef}
+        color={0x9fb6d8}
+        intensity={0}
+        position={[-320, 700, 260]}
+      />
       <directionalLight
         ref={sunRef}
         castShadow

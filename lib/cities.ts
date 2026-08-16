@@ -22,7 +22,7 @@ export const CITIES: City[] = [
     country: 'India',
     tagline: 'Urbs Prima in Indis',
     blurb:
-      'Seven islands reclaimed into one peninsula, then filled with more people per square kilometre than almost anywhere on earth. Walk from the Gateway of India up the Art Deco crescent of Marine Drive, out along the Sea Link, and into Dharavi.',
+      'Seven islands reclaimed into one peninsula, then filled with more people per square kilometre than almost anywhere on earth. Sixteen stops from first light at the Gateway of India to the Queen\'s Necklace after dark — or leave the tour and walk it yourself, from Colaba Causeway to Dharavi.',
     highlights: [
       'Gateway of India',
       'Chhatrapati Shivaji Maharaj Terminus',

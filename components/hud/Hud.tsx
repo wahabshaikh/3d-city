@@ -2,10 +2,19 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useStore, setState, live, travelTo, closeMap, getState } from '@/lib/store';
+import {
+  useStore,
+  setState,
+  live,
+  travelTo,
+  closeMap,
+  getState,
+  startTour,
+} from '@/lib/store';
 import { LANDMARKS, LANDMARKS_BY_ID } from '@/lib/mumbai/landmarks';
 import { compassLabel } from '@/lib/geo';
 import { MiniMap, BigMap } from './CityMap';
+import { TourPanel, TourFade } from './Tour';
 
 const gold = '#f2c14e';
 const panel: React.CSSProperties = {
@@ -22,17 +31,20 @@ export function Hud() {
   const showMap = useStore((s) => s.showMap);
   const showHelp = useStore((s) => s.showHelp);
   const paused = useStore((s) => s.paused);
+  const touring = useStore((s) => s.tour) !== null;
   const welcome = !started;
 
   return (
     <>
-      <Crosshair visible={locked && !showMap && !showHelp} />
-      {!welcome && <TopBar />}
-      <LandmarkCard />
-      {!welcome && <BottomRight />}
+      <TourFade />
+      <Crosshair visible={locked && !showMap && !showHelp && !touring} />
+      {!welcome && !touring && <TopBar />}
+      {!touring && <LandmarkCard />}
+      {!welcome && !touring && <BottomRight />}
+      {touring && <TourPanel />}
       {showMap && <MapOverlay />}
       {showHelp && <HelpOverlay />}
-      {(welcome || paused) && !showMap && !showHelp && (
+      {(welcome || paused) && !touring && !showMap && !showHelp && (
         <StartOverlay started={started} loaded={loaded} />
       )}
     </>
@@ -242,6 +254,7 @@ function BottomRight() {
         >
           Keys · H
         </Chip>
+        <Chip onClick={() => startTour()}>▶ Tour · T</Chip>
       </div>
     </div>
   );
@@ -403,6 +416,7 @@ function MapOverlay() {
 }
 
 const KEYMAP: [string, string][] = [
+  ['T', 'Take the guided tour'],
   ['W A S D', 'Walk'],
   ['Shift', 'Sprint'],
   ['Space', 'Jump / rise'],
@@ -582,21 +596,35 @@ function StartOverlay({ started, loaded }: { started: boolean; loaded: boolean }
             justifyContent: 'center',
           }}
         >
+          {loaded && (
+            <button
+              type="button"
+              className="hud-chip"
+              onClick={() => startTour()}
+              style={{
+                ...btn,
+                background: 'rgba(242,193,78,.16)',
+                borderColor: 'rgba(242,193,78,.6)',
+                color: gold,
+              }}
+            >
+              ▶ Take the tour
+            </button>
+          )}
+
           <button
             id="lock-target"
             type="button"
             disabled={!loaded}
             style={{
               ...btn,
-              background: loaded ? 'rgba(242,193,78,.14)' : 'transparent',
-              borderColor: loaded ? 'rgba(242,193,78,.55)' : 'rgba(255,255,255,.12)',
-              color: loaded ? gold : 'rgba(244,238,230,.45)',
+              color: loaded ? 'rgba(244,238,230,.85)' : 'rgba(244,238,230,.45)',
             }}
           >
             {loaded
               ? started
                 ? 'Resume exploring'
-                : 'Start exploring'
+                : 'Explore on foot'
               : 'Building the city…'}
           </button>
 

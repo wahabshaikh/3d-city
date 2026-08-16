@@ -21,20 +21,55 @@ export function Ocean() {
     n2.repeat.set(260, 260);
     const mat = new THREE.MeshStandardMaterial({
       color: 0x1b3642,
-      roughness: 0.26,
+      roughness: 0.44,
       metalness: 0.12,
       normalMap: n1,
       normalScale: new THREE.Vector2(0.22, 0.22),
       envMapIntensity: 0.85,
     });
+
+    /**
+     * The normal map tiles every forty metres across a sea thirty kilometres
+     * wide. Past a few hundred metres a single pixel covers thousands of tiles,
+     * the mip chain gives up, and the surviving perturbed normals catch the
+     * light as one flat sheen right along the horizon — which at night reads as
+     * a bright band where the Arabian Sea should be. So the chop is faded out
+     * with distance and the water left rougher far off, which is what a real
+     * sea does to the eye anyway.
+     */
+    mat.onBeforeCompile = (shader) => {
+      shader.fragmentShader = shader.fragmentShader
+        .replace(
+          '#include <normal_fragment_maps>',
+          `#ifdef USE_NORMALMAP_TANGENTSPACE
+             vec3 mapN = texture2D( normalMap, vNormalMapUv ).xyz * 2.0 - 1.0;
+             mapN.xy *= normalScale *
+               ( 1.0 - smoothstep( 140.0, 1200.0, length( vViewPosition ) ) );
+             normal = normalize( tbn * mapN );
+           #endif`
+        )
+        .replace(
+          '#include <roughnessmap_fragment>',
+          `#include <roughnessmap_fragment>
+           roughnessFactor = mix( roughnessFactor, 0.88,
+             smoothstep( 260.0, 2600.0, length( vViewPosition ) ) );`
+        );
+    };
+    mat.customProgramCacheKey = () => 'sea';
+
     return { mat, n1, n2 };
   }, []);
 
-  // Night water goes darker and glassier; midday is brighter and choppier.
+  /**
+   * Night water goes darker and *rougher*, not glassier. A near-mirror surface
+   * this large throws a grazing-angle specular lobe right along the horizon,
+   * which lights the whole Arabian Sea brighter than the sky above it.
+   */
   useEffect(() => {
     const night = tod < 0.22 || tod > 0.85;
-    mat.color.set(night ? 0x0b1720 : tod > 0.74 ? 0x24404c : 0x1b3642);
-    mat.roughness = night ? 0.16 : 0.26;
+    mat.color.set(night ? 0x0a141c : tod > 0.74 ? 0x24404c : 0x1b3642);
+    mat.roughness = night ? 0.82 : 0.44;
+    mat.envMapIntensity = night ? 0.45 : 0.85;
   }, [tod, mat]);
 
   useFrame((_, dt) => {

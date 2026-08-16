@@ -209,9 +209,86 @@ export function Props() {
       {meshes.map((o, i) => (
         <primitive key={i} object={o} />
       ))}
+      <LampGlow />
       <Hoardings />
     </group>
   );
+}
+
+/* -------------------------------- lamp glow ------------------------------- */
+
+const glowVert = /* glsl */ `
+  uniform float uScale;
+  varying float vFade;
+  void main() {
+    vec4 mv = modelViewMatrix * vec4(position, 1.0);
+    float dist = -mv.z;
+    // Sodium lamps stay visible right across Back Bay, so the sprite is not
+    // allowed to shrink away with distance — that is the whole point of the
+    // Queen's Necklace, a curve of light read from three kilometres off.
+    gl_PointSize = clamp(uScale / max(dist, 1.0), 2.5, 46.0);
+    vFade = smoothstep(4200.0, 2400.0, dist);
+    gl_Position = projectionMatrix * mv;
+  }
+`;
+
+const glowFrag = /* glsl */ `
+  uniform float uOpacity;
+  uniform vec3 uColour;
+  varying float vFade;
+  void main() {
+    vec2 d = gl_PointCoord - vec2(0.5);
+    float r = length(d) * 2.0;
+    if (r > 1.0) discard;
+    float core = pow(1.0 - r, 2.4);
+    float halo = pow(1.0 - r, 0.7) * 0.35;
+    gl_FragColor = vec4(uColour * (core + halo), (core + halo) * uOpacity * vFade);
+  }
+`;
+
+/**
+ * Every street lamp in the city as one additive point sprite. Cheap enough to
+ * leave on, and it is what turns Marine Drive after dark into a string of
+ * pearls rather than a row of unlit poles.
+ */
+function LampGlow() {
+  const tod = useStore((s) => s.timeOfDay);
+
+  const { geometry, material } = useMemo(() => {
+    const world = buildWorld();
+    const pos = new Float32Array(world.lights.length * 3);
+    world.lights.forEach((l, i) => {
+      pos[i * 3] = l.x;
+      pos[i * 3 + 1] = 9.9;
+      pos[i * 3 + 2] = l.z;
+    });
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geometry.computeBoundingSphere();
+
+    const material = new THREE.ShaderMaterial({
+      vertexShader: glowVert,
+      fragmentShader: glowFrag,
+      uniforms: {
+        uScale: { value: 900 },
+        uOpacity: { value: 0 },
+        uColour: { value: new THREE.Color(0xffc784) },
+      },
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      toneMapped: false,
+    });
+    return { geometry, material };
+  }, []);
+
+  useEffect(() => {
+    const dusk = tod < 0.3 ? 1 - tod / 0.3 : tod > 0.71 ? (tod - 0.71) / 0.14 : 0;
+    material.uniforms.uOpacity.value = THREE.MathUtils.clamp(dusk, 0, 1) * 0.95;
+  }, [tod, material]);
+
+  const visible = tod < 0.3 || tod > 0.71;
+  return <points visible={visible} geometry={geometry} material={material} renderOrder={30} />;
 }
 
 /** Film hoardings on every arterial road. */

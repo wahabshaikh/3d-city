@@ -7,11 +7,14 @@ import { SkyDome } from './Sky';
 import { Ocean } from './Ocean';
 import { Terrain } from './Terrain';
 import { Roads } from './Roads';
+import { Streets } from './Streets';
 import { Cityscape } from './Cityscape';
 import { Props } from './Props';
+import { StreetLife } from './StreetLife';
 import { Landmarks } from './Landmarks';
 import { Traffic } from './Traffic';
 import { Player } from './Player';
+import { TourDirector } from './TourDirector';
 import { setState } from '@/lib/store';
 
 function Ready() {
@@ -39,12 +42,15 @@ export function Scene() {
       <SkyDome />
       <Terrain />
       <Ocean />
+      <Streets />
       <Roads />
       <Cityscape />
       <Landmarks />
       <Props />
+      <StreetLife />
       <Traffic />
       <Player />
+      <TourDirector />
       <Ready />
     </>
   );
