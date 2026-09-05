@@ -40,6 +40,27 @@ Walk up to any vehicle and press `F`. Kaali-peeli Padminis, BEST double-deckers,
 motorcycles and private cars all drive differently — a bus understeers, a bike
 does not, and the handbrake is how you get a Padmini round a corner at speed.
 
+## Playing it properly
+
+**The wanted level.** Crimes bank up before they cost you a star, so clipping
+one person on the pavement is a warning and ploughing through four is a chase.
+Taking a car out of moving traffic rather than off the kerb is noticed on its
+own. Every star puts another Mumbai Police Gypsy on the road: they spawn out of
+sight down an artery, drive on the same handling model you do, and steer at
+whatever you currently are. Let one stop alongside you while you are on foot
+and you are busted. Lose them for long enough and the stars come off one at a
+time.
+
+**The jobs.** Four of them, marked as turning columns of light and on the
+radar. A dabbawala tiffin run against the clock out of Churchgate; a taxi shift
+out of Apollo Bunder; a collection round out of Ballard Estate; and a ferry crew
+to sweep up off the island. Walk into the light to take the job.
+
+**The crowd.** Sixty thousand people on the footpaths, walking — the stride is
+in the vertex shader, keyed off distance covered rather than the clock, so the
+feet never skate. Anyone your bumper reaches leaves the crowd and comes back as
+a jointed body in the road.
+
 ## The guided tour
 
 A camera tour of the chapter, timed to run one day from first light at the
@@ -144,14 +165,23 @@ lib/
   mumbai/physics.ts      ground height, bridge decks, collision
   game/vehicles.ts       handling, and the vehicle roster
   game/traffic.ts        the pool of vehicles you can steal
+  game/police.ts         the wanted level, and what turns up because of it
+  game/peds.ts           reaching into the crowd, and taking someone out of it
+  game/casualties.ts     the pool of bodies that come back out
+  game/missions.ts       the jobs: givers, stages, clocks and payouts
   game/mapTexture.ts     the radar map, baked once at load
   textures.ts            every texture, painted on a canvas at runtime
 components/
   world/                 scene, sky, ocean, terrain, streets, rail, landmarks
   world/vehicles.ts      every vehicle body, extruded from its side elevation
+  world/crowd.ts         the crowd's geometry and its vertex-shader walk
+  world/Post             bloom, colour grade, vignette, crash shake
   game/PlayerRig         the player: on foot, driving, and the camera
-  game/character.ts      the articulated ped rig and its walk cycle
+  game/character.ts      the articulated rig, its walk cycle and its poses
   game/Vehicles          traffic and kerbside parking, instanced
+  game/Police            whatever is currently chasing you
+  game/Missions          the markers, and the logic behind them
+  game/Casualties        the bodies, while they are in the road
   game/GameHud           radar, health, wanted level, speedometer
   hud/                   the tour panel, landmark cards, map screen
 ```
