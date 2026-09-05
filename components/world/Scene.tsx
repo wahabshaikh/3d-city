@@ -13,7 +13,8 @@ import { Props } from './Props';
 import { StreetLife } from './StreetLife';
 import { Landmarks } from './Landmarks';
 import { Traffic } from './Traffic';
-import { Player } from './Player';
+import { Vehicles } from '../game/Vehicles';
+import { PlayerRig } from '../game/PlayerRig';
 import { TourDirector } from './TourDirector';
 import { setState } from '@/lib/store';
 
@@ -49,7 +50,8 @@ export function Scene() {
       <Props />
       <StreetLife />
       <Traffic />
-      <Player />
+      <Vehicles />
+      <PlayerRig />
       <TourDirector />
       <Ready />
     </>

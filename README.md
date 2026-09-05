@@ -1,34 +1,52 @@
-# City Explorer
+# Mumbai
 
-A virtual city tour and first-person explorer, built with Next.js and Three.js.
-`/` lists the cities; each city lives at `/city/<slug>`. Mumbai is the first one.
+An open-world game set in a Mumbai built from its real geography. Next.js and
+Three.js, generated in the browser — no model files, no textures on disk, no
+network requests. The geometry is authored from the real architecture and the
+textures are painted onto canvases at load time.
 
-You can take the guided tour or walk the place yourself.
+You start on Apollo Bunder with the Gateway of India in front of you. Walk,
+run, swim, take anything parked at the kerb and drive it.
 
-Everything you see is generated in the browser — there are no model files, no
-textures on disk and no network requests. The geometry is authored from the real
-architecture, and the textures are painted onto canvases at load time.
+## Chapter 1 — South Bombay
 
-## The tour
+The full model runs 27 km from Colaba Point to Versova, which is more city than
+a game can fill. So it ships in chapters, and Chapter 1 is the island city
+south of Mahalaxmi: Colaba, the Fort, Nariman Point, Marine Drive, Malabar
+Hill, Byculla and the docks. Sea on three sides, roughly 1.8 km by 2.5 km in
+world metres.
 
-Sixteen stops, about four and a half minutes, laid out the way the city is laid
-out — south to north, Colaba Point to Juhu — and timed to run one day, from
-first light at the Gateway of India to the Queen's Necklace after dark.
+The rest of Mumbai still exists in `lib/mumbai/` — the coastline, the arteries,
+the districts, the landmarks — and `lib/mumbai/bounds.ts` is the one place that
+decides how much of it is built. Widening a chapter is a change to that file.
 
-Each stop is a single moving shot with a piece of narration: the camera dollies
-and pans while you read, and the tour cuts through black between stops. You can
-pause it, step back and forward, jump to any stop from the row of markers, or
-drop out at any point and carry on on foot from wherever the camera is standing.
+## Playing it
 
-> Gateway of India · The Taj Mahal Palace · Colaba Causeway · Chhatrapati
-> Shivaji Maharaj Terminus · Flora Fountain · Rajabai Clock Tower · Marine
-> Drive · Girgaum Chowpatty · Mahalaxmi Dhobi Ghat · Haji Ali Dargah · Worli and
-> the mill land · Dharavi · Bandra–Worli Sea Link · Bandra Fort · Juhu Beach ·
-> the Queen's Necklace
+| Key | |
+| --- | --- |
+| `W A S D` | run — steer, when you are driving |
+| `Shift` | sprint |
+| `Space` | jump — handbrake, in a car |
+| `F` | get in / get out |
+| Mouse | look around |
+| Wheel | pull the camera in and out |
+| `M` | map and fast travel |
+| `T` | the guided tour of the district |
+| `[` `]` | wind time of day back / forward |
+| `H` | controls |
+| `Esc` | pause |
 
-The itinerary is `lib/mumbai/tour.ts` — stop positions are given in latitude and
-longitude like everything else, so a shot cannot drift away from the thing it is
-pointing at.
+Walk up to any vehicle and press `F`. Kaali-peeli Padminis, BEST double-deckers,
+motorcycles and private cars all drive differently — a bus understeers, a bike
+does not, and the handbrake is how you get a Padmini round a corner at speed.
+
+## The guided tour
+
+A camera tour of the chapter, timed to run one day from first light at the
+Gateway of India to the Queen's Necklace after dark. Each stop is a single
+moving shot with a piece of narration; you can pause it, step between stops, or
+drop out and carry on from wherever the camera is standing. The itinerary is
+`lib/mumbai/tour.ts`, trimmed to the stops the chapter actually builds.
 
 ## Running it
 
@@ -38,27 +56,6 @@ npm run dev      # http://localhost:3000
 npm run build    # production build
 npm run typecheck
 ```
-
-## Controls
-
-| Key | |
-| --- | --- |
-| `T` | take the guided tour |
-| `W A S D` | walk |
-| `Shift` | sprint |
-| `Space` | jump, or rise when flying |
-| `C` | descend when flying |
-| `F` | toggle flight |
-| `M` | city map and fast travel |
-| `[` `]` | wind time of day back / forward |
-| `H` | controls |
-| `Esc` | release the cursor |
-
-While the tour is running, `Space` pauses it, `←` `→` step between stops, and
-`Esc` leaves it and hands you the camera.
-
-You start on Apollo Bunder facing the Gateway of India. You can walk anywhere,
-swim, and cross the Sea Link and the Haji Ali causeway on foot.
 
 ## How Mumbai is built
 
@@ -134,22 +131,29 @@ Queen's Necklace from three kilometres away.
 ```
 app/                     routes: / and /city/[slug]
 lib/
-  geo.ts                 lat/lon → world coordinates
-  store.ts               UI state, and the per-frame values the HUD polls
+  geo.ts                 lat/lon -> world coordinates
+  store.ts               UI and game state, and the per-frame values the HUD polls
+  mumbai/bounds.ts       the chapter boundary — how much city gets built
   mumbai/coastline.ts    the traced shore
   mumbai/roads.ts        arterial roads and the suburban rail network
-  mumbai/districts.ts    the 33 districts, their building grammar and grain
+  mumbai/districts.ts    the districts, their building grammar and grain
   mumbai/streets.ts      the generated lane network, and queries against it
   mumbai/landmarks.ts    landmark registry: coordinates, blurbs, viewpoints
   mumbai/tour.ts         the guided tour: sixteen stops, camera moves, script
   mumbai/world.ts        the procedural city generator
   mumbai/physics.ts      ground height, bridge decks, collision
+  game/vehicles.ts       handling, and the vehicle roster
+  game/traffic.ts        the pool of vehicles you can steal
+  game/mapTexture.ts     the radar map, baked once at load
   textures.ts            every texture, painted on a canvas at runtime
 components/
-  world/                 scene, sky, ocean, terrain, streets, traffic, player
-  world/TourDirector     flies the camera through the tour
-  world/landmarks/       the modelled landmarks
-  hud/                   the tour panel, landmark cards, minimap, city map
+  world/                 scene, sky, ocean, terrain, streets, rail, landmarks
+  world/vehicles.ts      every vehicle body, extruded from its side elevation
+  game/PlayerRig         the player: on foot, driving, and the camera
+  game/character.ts      the articulated ped rig and its walk cycle
+  game/Vehicles          traffic and kerbside parking, instanced
+  game/GameHud           radar, health, wanted level, speedometer
+  hud/                   the tour panel, landmark cards, map screen
 ```
 
 ## Adding a city

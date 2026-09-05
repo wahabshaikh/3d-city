@@ -2,7 +2,10 @@
 
 import { useSyncExternalStore } from 'react';
 
-export type Mode = 'walk' | 'fly';
+export type Mode = 'walk' | 'drive' | 'fly';
+
+/** A banner that slides in over the HUD — an area name, a mission line, a kill. */
+export type Notice = { kind: 'area' | 'vehicle' | 'mission' | 'alert'; text: string; sub?: string; seq: number };
 
 export type State = {
   locked: boolean;
@@ -23,6 +26,24 @@ export type State = {
   /** Index of the guided-tour stop, or null when free roaming. */
   tour: number | null;
   tourPlaying: boolean;
+
+  /* ------------------------------- the game ------------------------------- */
+  /** 0..100. Zero is WASTED. */
+  health: number;
+  armour: number;
+  /** Rupees. */
+  money: number;
+  /** 0..6 stars. */
+  wanted: number;
+  /** Name of the vehicle being driven, or null on foot. */
+  vehicle: string | null;
+  /** District you are standing in, for the corner caption. */
+  area: string;
+  notice: Notice | null;
+  /** Set while the WASTED / BUSTED wipe is running. */
+  down: 'wasted' | 'busted' | null;
+  /** Current mission objective line, or null. */
+  objective: string | null;
 };
 
 let state: State = {
@@ -39,6 +60,15 @@ let state: State = {
   loaded: false,
   tour: null,
   tourPlaying: false,
+  health: 100,
+  armour: 0,
+  money: 0,
+  wanted: 0,
+  vehicle: null,
+  area: '',
+  notice: null,
+  down: null,
+  objective: null,
 };
 
 const subs = new Set<() => void>();
@@ -148,6 +178,34 @@ if (typeof window !== 'undefined') {
   (window as unknown as Record<string, unknown>).__city = { getState, setState, travelTo };
 }
 
+let noticeSeq = 0;
+
+/** Slide a caption in over the HUD. Repeats of the same text are ignored. */
+export function notify(kind: Notice['kind'], text: string, sub?: string) {
+  const cur = getState().notice;
+  if (cur && cur.kind === kind && cur.text === text && cur.sub === sub) return;
+  setState({ notice: { kind, text, sub, seq: ++noticeSeq } });
+}
+
+export function addMoney(n: number) {
+  setState({ money: Math.max(0, getState().money + n) });
+}
+
+/** Damage lands on the armour first, the way it always has. */
+export function damage(n: number) {
+  const st = getState();
+  if (st.down) return;
+  const soaked = Math.min(st.armour, n * 0.75);
+  const health = Math.max(0, st.health - (n - soaked));
+  setState({ armour: st.armour - soaked, health });
+  if (health <= 0) setState({ down: 'wasted' });
+}
+
+export function setWanted(n: number) {
+  const w = Math.max(0, Math.min(6, Math.round(n)));
+  if (w !== getState().wanted) setState({ wanted: w });
+}
+
 export const live = {
   x: 0,
   y: 1.7,
@@ -157,6 +215,12 @@ export const live = {
   fps: 0,
   inWater: false,
   altitude: 0,
+  /** Ground speed in km/h, for the speedometer. */
+  kmh: 0,
+  /** 0..1, rings after a crash so the HUD can shake. */
+  impact: 0,
+  /** True when there is something at the kerb worth pressing F for. */
+  nearVehicle: false,
   /** Tour: 0 = clear, 1 = black. The cut between one shot and the next. */
   fade: 0,
   /** Tour: 0..1 through the current shot, for the progress bar. */

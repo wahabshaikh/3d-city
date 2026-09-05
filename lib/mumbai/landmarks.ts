@@ -1,4 +1,5 @@
 import { geo } from '../geo';
+import { inPhase } from './bounds';
 
 export type Landmark = {
   id: string;
@@ -16,7 +17,7 @@ export type Landmark = {
   lookAt?: [number, number, number];
 };
 
-export const LANDMARKS: Landmark[] = [
+const ALL_LANDMARKS: Landmark[] = [
   {
     id: 'gateway-of-india',
     name: 'Gateway of India',
@@ -302,7 +303,20 @@ export const LANDMARKS: Landmark[] = [
   },
 ];
 
-export const LANDMARKS_BY_ID = Object.fromEntries(LANDMARKS.map((l) => [l.id, l]));
+/**
+ * Only what is inside the current chapter. The rest of the registry stays in
+ * the file — the map screen has nowhere to send you until the chapter that
+ * unlocks them ships.
+ */
+export const LANDMARKS: Landmark[] = ALL_LANDMARKS.filter((l) =>
+  inPhase(...(geo(l.at[0], l.at[1]) as [number, number]), 60)
+);
+
+export const LOCKED_LANDMARKS: Landmark[] = ALL_LANDMARKS.filter(
+  (l) => !LANDMARKS.includes(l)
+);
+
+export const LANDMARKS_BY_ID = Object.fromEntries(ALL_LANDMARKS.map((l) => [l.id, l]));
 
 export function landmarkWorld(l: Landmark): [number, number] {
   return geo(l.at[0], l.at[1]);

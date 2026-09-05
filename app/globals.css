@@ -112,3 +112,49 @@ canvas {
   border-color: rgba(242, 193, 78, 0.55);
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.35);
 }
+
+/* ------------------------------- the game HUD ------------------------------ */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes captionIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes starPop {
+  from {
+    transform: scale(2.2);
+    filter: brightness(2.4);
+  }
+  to {
+    transform: none;
+    filter: none;
+  }
+}
+
+@keyframes downIn {
+  from {
+    opacity: 0;
+    transform: scale(2.6) rotate(-4deg);
+    letter-spacing: 0.4em;
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    letter-spacing: -0.02em;
+  }
+}

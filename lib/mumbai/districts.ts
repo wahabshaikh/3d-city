@@ -1,5 +1,6 @@
 import { COMPRESS, geo } from '../geo';
 import { LANDMARKS } from './landmarks';
+import { inPhase } from './bounds';
 
 export type StyleId =
   | 'colonial'
@@ -192,10 +193,15 @@ export const DISTRICTS: District[] = [
 
 export type DistrictW = District & { x: number; z: number; rw: number };
 
+/**
+ * Only the districts inside the current phase are built. The rest of the model
+ * still exists in `DISTRICTS` — the map screen labels them as locked — but no
+ * lane, plot or crowd is generated for them.
+ */
 export const DISTRICTS_W: DistrictW[] = DISTRICTS.map((d) => {
   const [x, z] = geo(d.at[0], d.at[1]);
   return { ...d, x, z, rw: d.r / COMPRESS };
-});
+}).filter((d) => inPhase(d.x, d.z, d.rw * 0.35));
 
 /** The district a point belongs to, or null out in the gaps between them. */
 export function nearestDistrict(x: number, z: number): DistrictW | null {

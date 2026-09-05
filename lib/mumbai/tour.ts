@@ -1,4 +1,5 @@
 import { geo } from '../geo';
+import { inPhase } from './bounds';
 
 /**
  * The guided tour.
@@ -41,7 +42,7 @@ export type Stop = {
 
 const m = (lat: number, lon: number, y: number): Mark => ({ at: [lat, lon], y });
 
-export const TOUR: Stop[] = [
+const ALL_STOPS: Stop[] = [
   {
     id: 'gateway',
     title: 'Gateway of India',
@@ -286,6 +287,11 @@ export const TOUR: Stop[] = [
 ];
 
 /** Seconds of black between one shot and the next. */
+/** Trimmed to the chapter: a shot cannot point at a district that is not built. */
+export const TOUR: Stop[] = ALL_STOPS.filter((s) =>
+  inPhase(...(geo(s.look.at[0], s.look.at[1]) as [number, number]), 80)
+);
+
 export const CUT = 0.55;
 
 export function stopDuration(s: Stop) {
