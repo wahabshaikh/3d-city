@@ -37,6 +37,10 @@ export type Spec = {
   driver: [number, number, number];
   /** Some bodies you simply cannot see into. */
   hideDriver?: boolean;
+  /** Ridden rather than sat in: knees out, hands forward on the bars. */
+  astride?: boolean;
+  /** How far the body leans in a corner. A bike lays over; a bus does not. */
+  lean?: number;
   /** Roughly how much punishment the shell takes. */
   armour: number;
   mass: number;
@@ -147,9 +151,11 @@ export const SPECS: Spec[] = [
     steer: 2.4,
     halfWidth: 0.35,
     halfLength: 0.95,
-    seatY: 0.92,
-    seatZ: -0.16,
-    driver: [0, -0.16, -0.18],
+    seatY: 1.24,
+    seatZ: -0.1,
+    driver: [0, -0.06, -0.14],
+    astride: true,
+    lean: 2.4,
     armour: 30,
     mass: 150,
   },
@@ -263,7 +269,13 @@ export function driveStep(c: Car, input: DriveInput, dt: number) {
   c.vz = fz * vf + rz * vs;
 
   // Body attitude, entirely cosmetic but it is most of what sells the weight.
-  c.roll = damp(c.roll, THREE.MathUtils.clamp(-vs * 0.035 - yawRate * vf * 0.02, -0.28, 0.28), 8, dt);
+  const lean = s.lean ?? 1;
+  c.roll = damp(
+    c.roll,
+    THREE.MathUtils.clamp((-vs * 0.035 - yawRate * vf * 0.02) * lean, -0.28 * lean, 0.28 * lean),
+    8,
+    dt
+  );
   const accel = input.throttle > 0 ? -input.throttle * 0.03 : input.throttle * 0.05;
   c.pitch = damp(c.pitch, THREE.MathUtils.clamp(accel, -0.1, 0.14), 7, dt);
 

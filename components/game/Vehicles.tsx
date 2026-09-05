@@ -224,8 +224,8 @@ function Headlights() {
     const night = tod < 0.27 || tod > 0.74 ? 1 : 0;
     const head = m.headLamp as THREE.MeshStandardMaterial;
     const tail = m.tailLamp as THREE.MeshStandardMaterial;
-    head.emissiveIntensity = THREE.MathUtils.damp(head.emissiveIntensity, night * 2.6, 3, dt);
-    tail.emissiveIntensity = THREE.MathUtils.damp(tail.emissiveIntensity, 0.35 + night * 1.4, 3, dt);
+    head.emissiveIntensity = THREE.MathUtils.damp(head.emissiveIntensity, night * 1.5, 3, dt);
+    tail.emissiveIntensity = THREE.MathUtils.damp(tail.emissiveIntensity, 0.3 + night * 0.9, 3, dt);
   });
   return null;
 }

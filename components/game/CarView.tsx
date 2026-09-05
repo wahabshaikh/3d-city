@@ -7,6 +7,7 @@ import { vehicleGeometry } from '../world/vehicles';
 import { vehicleMaterials } from './Vehicles';
 import { getState } from '@/lib/store';
 import { contactGeometry, contactMaterial } from './contact';
+import { materials } from '../world/materials';
 import type { Car } from '@/lib/game/vehicles';
 
 /**
@@ -15,6 +16,8 @@ import type { Car } from '@/lib/game/vehicles';
  * paint so the colour can be per-car, wheels that steer and spin, and — after
  * dark — headlamps that actually throw light down the street.
  */
+const sirenGeo = new THREE.BoxGeometry(0.5, 0.16, 0.2);
+
 export function CarView({ car, driven = false }: { car: Car; driven?: boolean }) {
   const geos = useMemo(() => vehicleGeometry(), []);
   const base = useMemo(() => vehicleMaterials(), []);
@@ -35,6 +38,7 @@ export function CarView({ car, driven = false }: { car: Car; driven?: boolean })
 
   const ref = useRef<THREE.Group>(null);
   const blob = useRef<THREE.Mesh>(null);
+  const siren = useRef<THREE.Group>(null);
   const front = useRef<THREE.Group>(null);
   const rear = useRef<THREE.Group>(null);
   const beams = useRef<THREE.Group>(null);
@@ -58,13 +62,29 @@ export function CarView({ car, driven = false }: { car: Car; driven?: boolean })
       blob.current.rotation.set(0, car.yaw, 0);
     }
 
+    // The bar alternates twice a second, and throws a little of it around.
+    if (siren.current) {
+      const m = materials();
+      const t = (Date.now() % 900) / 900;
+      const red = t < 0.5 ? 1 : 0;
+      (m.sirenRed as THREE.MeshStandardMaterial).emissiveIntensity = 0.25 + red * 1.6;
+      (m.sirenBlue as THREE.MeshStandardMaterial).emissiveIntensity = 0.25 + (1 - red) * 1.6;
+      const l = siren.current.children.find((c) => (c as THREE.PointLight).isPointLight) as
+        | THREE.PointLight
+        | undefined;
+      if (l) {
+        l.color.setHex(red ? 0xff2a12 : 0x2f7bff);
+        l.intensity = 22;
+      }
+    }
+
     if (beams.current) {
       const t = getState().timeOfDay;
       const on = t < 0.27 || t > 0.74;
       beams.current.visible = on;
       for (const child of beams.current.children) {
         const l = child as THREE.SpotLight;
-        if (l.isSpotLight) l.intensity = THREE.MathUtils.damp(l.intensity, on ? 420 : 0, 5, dt);
+        if (l.isSpotLight) l.intensity = THREE.MathUtils.damp(l.intensity, on ? 190 : 0, 5, dt);
       }
     }
   });
@@ -110,6 +130,13 @@ export function CarView({ car, driven = false }: { car: Car; driven?: boolean })
       </group>
       <mesh geometry={g.head} material={mats.head} />
       <mesh geometry={g.tail} material={mats.tail} />
+      {s.id === 'gypsy' && (
+        <group ref={siren}>
+          <mesh geometry={sirenGeo} material={materials().sirenRed} position={[-0.28, 1.83, 0.1]} />
+          <mesh geometry={sirenGeo} material={materials().sirenBlue} position={[0.28, 1.83, 0.1]} />
+          <pointLight position={[0, 1.95, 0.1]} distance={12} decay={1.8} intensity={0} />
+        </group>
+      )}
       {driven && (
         <group ref={beams} visible={false}>
           {beamLights.map((l, i) => (

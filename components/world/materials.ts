@@ -115,6 +115,20 @@ export function materials() {
     policeBlue: new THREE.MeshStandardMaterial({ color: 0x1f4f9c, roughness: 0.45 }),
     chrome: new THREE.MeshStandardMaterial({ color: 0xb9bec4, roughness: 0.28, metalness: 0.9 }),
     tyre: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, vertexColors: true }),
+    /** A Gypsy's light bar. Intensity is flashed by the police renderer. */
+    sirenRed: new THREE.MeshStandardMaterial({
+      color: 0xd8281c,
+      emissive: 0xff2a12,
+      emissiveIntensity: 0,
+      roughness: 0.3,
+    }),
+    sirenBlue: new THREE.MeshStandardMaterial({
+      color: 0x1f4f9c,
+      emissive: 0x2f7bff,
+      emissiveIntensity: 0,
+      roughness: 0.3,
+    }),
+
     /** Lamp lenses. Emissive intensity is driven by the clock, not set here. */
     headLamp: new THREE.MeshStandardMaterial({
       color: 0xf6f1de,

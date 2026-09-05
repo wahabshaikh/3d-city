@@ -44,6 +44,10 @@ export type State = {
   down: 'wasted' | 'busted' | null;
   /** Current mission objective line, or null. */
   objective: string | null;
+  /** World [x, z] of the thing the objective is pointing at. */
+  objectiveAt: [number, number] | null;
+  /** What the man who gave you the job said. Cleared a few seconds later. */
+  brief: { name: string; giver: string; text: string } | null;
 };
 
 let state: State = {
@@ -69,6 +73,8 @@ let state: State = {
   notice: null,
   down: null,
   objective: null,
+  objectiveAt: null,
+  brief: null,
 };
 
 const subs = new Set<() => void>();

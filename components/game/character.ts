@@ -43,6 +43,13 @@ export type Rig = {
   shinL: THREE.Group;
   shinR: THREE.Group;
   materials: THREE.Material[];
+  /** Kept by name so one rig can be re-dressed and used again. */
+  paint: {
+    skin: THREE.MeshStandardMaterial;
+    shirt: THREE.MeshStandardMaterial;
+    trousers: THREE.MeshStandardMaterial;
+    hair: THREE.MeshStandardMaterial;
+  };
 };
 
 function limb(
@@ -156,7 +163,28 @@ export function buildCharacter(look: Look, cast = true): Rig {
     shinL: shins[0],
     shinR: shins[1],
     materials,
+    paint: { skin, shirt, trousers, hair },
   };
+}
+
+/** Limbs thrown out, face down. Used for anyone a bumper has just met. */
+export function poseFloored(r: Rig, t: number, dt: number) {
+  const k = 1 - Math.exp(-9 * dt);
+  const spread = Math.min(1, t * 3);
+  r.hips.position.y = lerp(r.hips.position.y, 0.92, k);
+  r.torso.rotation.x = lerp(r.torso.rotation.x, -0.16, k);
+  r.torso.rotation.z = lerp(r.torso.rotation.z, 0.1 * spread, k);
+  r.head.rotation.x = lerp(r.head.rotation.x, 0.3 * spread, k);
+  r.armL.rotation.x = lerp(r.armL.rotation.x, -2.1 * spread, k);
+  r.armR.rotation.x = lerp(r.armR.rotation.x, -1.4 * spread, k);
+  r.armL.rotation.z = lerp(r.armL.rotation.z, -0.8 * spread, k);
+  r.armR.rotation.z = lerp(r.armR.rotation.z, 0.55 * spread, k);
+  r.foreL.rotation.x = lerp(r.foreL.rotation.x, -0.5, k);
+  r.foreR.rotation.x = lerp(r.foreR.rotation.x, -1.2, k);
+  r.thighL.rotation.x = lerp(r.thighL.rotation.x, 0.5 * spread, k);
+  r.thighR.rotation.x = lerp(r.thighR.rotation.x, -0.35 * spread, k);
+  r.shinL.rotation.x = lerp(r.shinL.rotation.x, -0.9 * spread, k);
+  r.shinR.rotation.x = lerp(r.shinR.rotation.x, -0.3 * spread, k);
 }
 
 export function disposeCharacter(rig: Rig) {
@@ -214,6 +242,27 @@ export function poseWalk(r: Rig, phase: number, gait: number, dt: number) {
   r.torso.rotation.x = lerp(r.torso.rotation.x, 0.05 + move * 0.08 + run * 0.2, k);
   r.torso.rotation.z = lerp(r.torso.rotation.z, s * 0.045 * move, k);
   r.head.rotation.x = lerp(r.head.rotation.x, -0.05 - run * 0.16, k);
+}
+
+/** Astride: knees out and back, hands forward on the bars. */
+export function poseAstride(r: Rig, steer: number, dt: number) {
+  const k = 1 - Math.exp(-16 * dt);
+  r.hips.position.y = lerp(r.hips.position.y, 0.9, k);
+  r.torso.rotation.x = lerp(r.torso.rotation.x, 0.42, k);
+  r.torso.rotation.z = lerp(r.torso.rotation.z, -steer * 0.12, k);
+  r.head.rotation.x = lerp(r.head.rotation.x, -0.4, k);
+  r.thighL.rotation.x = lerp(r.thighL.rotation.x, -0.72, k);
+  r.thighR.rotation.x = lerp(r.thighR.rotation.x, -0.72, k);
+  r.thighL.rotation.z = lerp(r.thighL.rotation.z, -0.2, k);
+  r.thighR.rotation.z = lerp(r.thighR.rotation.z, 0.2, k);
+  r.shinL.rotation.x = lerp(r.shinL.rotation.x, 1.15, k);
+  r.shinR.rotation.x = lerp(r.shinR.rotation.x, 1.15, k);
+  r.armL.rotation.x = lerp(r.armL.rotation.x, -1.35, k);
+  r.armR.rotation.x = lerp(r.armR.rotation.x, -1.35, k);
+  r.armL.rotation.z = lerp(r.armL.rotation.z, -0.2, k);
+  r.armR.rotation.z = lerp(r.armR.rotation.z, 0.2, k);
+  r.foreL.rotation.x = lerp(r.foreL.rotation.x, -0.15, k);
+  r.foreR.rotation.x = lerp(r.foreR.rotation.x, -0.15, k);
 }
 
 /** Seated, hands on the wheel. */

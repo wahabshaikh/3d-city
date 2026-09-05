@@ -3,11 +3,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
-import { collidersNear, groundAt, resolve, SEA_LEVEL } from '@/lib/mumbai/physics';
+import { collidersNear, groundAt, openGroundNear, resolve, SEA_LEVEL } from '@/lib/mumbai/physics';
 import { LANDMARKS, landmarkWorld } from '@/lib/mumbai/landmarks';
 import { nearestDistrict } from '@/lib/mumbai/districts';
 import { clampToPhase, inPhase } from '@/lib/mumbai/bounds';
 import { jackNearest, nearestVehicleDistance, parkedSlots } from '@/lib/game/traffic';
+import { clearPolice, commitCrime, cops, stepPolice } from '@/lib/game/police';
+import { knockDown } from '@/lib/game/peds';
+import { addCasualty } from '@/lib/game/casualties';
 import {
   driveStep,
   exitWorld,
@@ -17,11 +20,11 @@ import {
   type Car,
   type DriveInput,
 } from '@/lib/game/vehicles';
-import { buildCharacter, LOOKS, poseSeated, poseWalk, type Rig } from './character';
+import { buildCharacter, LOOKS, poseAstride, poseSeated, poseWalk, type Rig } from './character';
 import { contactGeometry, contactMaterial } from './contact';
 import { CarView } from './CarView';
 import { bearing } from '@/lib/geo';
-import { closeMap, getState, live, notify, setState, startTour, useStore } from '@/lib/store';
+import { closeMap, damage, getState, live, notify, setState, startTour, useStore } from '@/lib/store';
 
 /**
  * The player.
@@ -90,34 +93,6 @@ function probe(
   return ok;
 }
 
-/**
- * Somewhere to stand.
- *
- * The landmark viewpoints and the map's fast travel both land inside a
- * building now and then, and one pass of `resolve` only pushes out of the
- * nearest wall — deep inside a block that is not enough. So spiral outward
- * until the push-out stops moving the point.
- */
-function freeSpot(x: number, z: number): [number, number] {
-  const clear = (px: number, pz: number) => {
-    const y = groundAt(px, pz).y;
-    const [rx, rz] = resolve(px, pz, y, RADIUS + 0.3);
-    return Math.hypot(rx - px, rz - pz) < 0.02 ? ([rx, rz] as [number, number]) : null;
-  };
-  const here = clear(x, z);
-  if (here) return here;
-  for (let ring = 1; ring <= 9; ring++) {
-    const r = ring * 5;
-    for (let i = 0; i < ring * 6; i++) {
-      const a = (i / (ring * 6)) * Math.PI * 2;
-      const [px, pz] = clampToPhase(x + Math.cos(a) * r, z + Math.sin(a) * r, 6);
-      const spot = clear(px, pz);
-      if (spot) return spot;
-    }
-  }
-  return resolve(x, z, groundAt(x, z).y, RADIUS + 0.3);
-}
-
 export function PlayerRig() {
   const { camera, gl } = useThree();
   const travel = useStore((s) => s.travel);
@@ -146,6 +121,8 @@ export function PlayerRig() {
 
   const rig = useMemo<Rig>(() => buildCharacter(LOOKS[0]), []);
   const nearestTimer = useRef(0);
+  /** Seconds until the player can be hurt again, so one crash is one hit. */
+  const hurt = useRef(0);
   const fpsAcc = useRef({ t: 0, n: 0 });
   const blobRef = useRef<THREE.Mesh>(null);
   // Its own copy: the player's blob fades on a jump, the parked cars' do not.
@@ -161,7 +138,7 @@ export function PlayerRig() {
   const place = useRef((x: number, z: number, yaw?: number) => {
     const p = ped.current;
     const [bx, bz] = clampToPhase(x, z, 6);
-    const [cx, cz] = freeSpot(bx, bz);
+    const [cx, cz] = openGroundNear(bx, bz, RADIUS + 0.3);
     p.x = cx;
     p.z = cz;
     p.y = groundAt(cx, cz).y;
@@ -197,6 +174,25 @@ export function PlayerRig() {
       },
       steal: () => {
         keys.current.enter = true;
+      },
+      /**
+       * Run the pursuit forward without waiting for frames. The chase is the
+       * one system whose behaviour only shows up over tens of seconds, and
+       * watching it in real time to find out whether a unit gets stuck in an
+       * alley is not a reasonable way to work.
+       */
+      advance: (seconds: number) => {
+        const p = ped.current;
+        for (let t = 0; t < seconds; t += 1 / 30)
+          stepPolice(1 / 30, p.x, p.z, !carRef.current);
+        return {
+          cops: cops.map((c) => ({
+            d: Math.round(Math.hypot(c.car.x - p.x, c.car.z - p.z)),
+            stuck: +c.stuck.toFixed(1),
+            speed: +Math.hypot(c.car.vx, c.car.vz).toFixed(1),
+          })),
+          wanted: getState().wanted,
+        };
       },
       findCar: () => {
         const p = ped.current;
@@ -337,6 +333,7 @@ export function PlayerRig() {
       p.y = groundAt(sx, sz).y;
       p.vx = p.vy = p.vz = 0;
       setCar(null);
+      clearPolice();
       const st = getState();
       setState({
         down: null,
@@ -398,6 +395,8 @@ export function PlayerRig() {
             setCar(made);
             setState({ vehicle: got.spec.name, mode: 'drive' });
             notify('vehicle', got.spec.name);
+            // Hauling someone out of their own car in traffic is noticed.
+            if (got.moving) commitCrime(1, 'Grand theft auto');
           }
         }
       }
@@ -414,7 +413,10 @@ export function PlayerRig() {
       };
       driveStep(driving, input, dt);
 
+      const s = driving.spec;
       const vf = forwardSpeed(driving);
+      const fx0 = Math.sin(driving.yaw);
+      const fz0 = Math.cos(driving.yaw);
       // Once you are moving the camera falls in behind, unless you are steering
       // it yourself — the same rule GTA has used since the first one in 3D.
       if (c.idle > 0.9 && Math.abs(vf) > 2.5) {
@@ -428,20 +430,40 @@ export function PlayerRig() {
       p.z = driving.z;
       p.y = driving.y;
       p.gait = 0;
-      poseSeated(rig, driving.wheel, dt);
+      if (s.astride) poseAstride(rig, driving.wheel, dt);
+      else poseSeated(rig, driving.wheel, dt);
 
-      const s = driving.spec;
-      const fx = Math.sin(driving.yaw);
-      const fz = Math.cos(driving.yaw);
       // Right-hand drive, and low enough in the seat to clear the roof lining.
       const [dx, dy, dz] = s.driver;
       rig.root.position.set(
-        driving.x + fx * dz + fz * dx,
+        driving.x + fx0 * dz + fz0 * dx,
         driving.y + dy,
-        driving.z + fz * dz - fx * dx
+        driving.z + fz0 * dz - fx0 * dx
       );
       rig.root.rotation.set(driving.pitch, driving.yaw, driving.roll);
       rig.root.visible = !s.hideDriver;
+
+      // Anyone in front of the bumper at speed comes off worse.
+      if (Math.abs(vf) > 3.2) {
+        const nose = Math.sign(vf) * (s.halfLength + 0.5);
+        const hits = knockDown(driving.x + fx0 * nose, driving.z + fz0 * nose, s.halfWidth + 0.7);
+        for (const h of hits) {
+          addCasualty(h.person, driving.yaw + (vf < 0 ? Math.PI : 0), Math.abs(vf));
+          commitCrime(0.55, 'Hit and run');
+        }
+        if (hits.length) {
+          driving.vx *= 0.94;
+          driving.vz *= 0.94;
+          driving.impact = Math.max(driving.impact, 0.35);
+        }
+      }
+
+      // A heavy shunt goes through the shell and into you.
+      hurt.current = Math.max(0, hurt.current - dt);
+      if (driving.impact > 0.55 && hurt.current === 0) {
+        hurt.current = 0.8;
+        damage((driving.impact - 0.5) * 34);
+      }
 
       live.kmh = Math.abs(vf) * 3.6;
       live.speed = speedOf(driving);
@@ -523,6 +545,24 @@ export function PlayerRig() {
       rig.root.position.set(p.x, p.y, p.z);
       rig.root.rotation.set(0, p.yaw, 0);
 
+      // Standing in the road with a chase on is its own hazard.
+      hurt.current = Math.max(0, hurt.current - dt);
+      if (hurt.current === 0) {
+        for (const cop of cops) {
+          const closing = Math.hypot(cop.car.vx, cop.car.vz);
+          if (closing < 5) continue;
+          if (Math.hypot(cop.car.x - p.x, cop.car.z - p.z) > cop.car.spec.halfLength + 1.1) continue;
+          hurt.current = 1.1;
+          damage(14 + closing * 1.6);
+          p.vx += cop.car.vx * 0.55;
+          p.vz += cop.car.vz * 0.55;
+          p.vy = 5;
+          p.onGround = false;
+          live.impact = 0.8;
+          break;
+        }
+      }
+
       live.kmh = speed * 3.6;
       live.speed = speed;
       live.inWater = swimming;
@@ -559,6 +599,16 @@ export function PlayerRig() {
       focus.z - dir.z * reach
     );
     camera.lookAt(focus.x + dir.x * 2, focus.y + dir.y * 2, focus.z + dir.z * 2);
+
+    /* -------------------------------- the law ------------------------------- */
+
+    if (active || st.wanted > 0) {
+      const { busted } = stepPolice(dt, p.x, p.z, !driving);
+      if (busted && !st.down) {
+        setState({ down: 'busted' });
+        notify('alert', 'Busted');
+      }
+    }
 
     /* -------------------------------- readouts ------------------------------ */
 

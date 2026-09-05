@@ -149,8 +149,8 @@ canvas {
 @keyframes downIn {
   from {
     opacity: 0;
-    transform: scale(2.6) rotate(-4deg);
-    letter-spacing: 0.4em;
+    transform: scale(1.7) rotate(-3deg);
+    letter-spacing: 0.24em;
   }
   to {
     opacity: 1;

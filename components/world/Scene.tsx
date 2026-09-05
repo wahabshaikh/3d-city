@@ -15,6 +15,9 @@ import { Landmarks } from './Landmarks';
 import { Traffic } from './Traffic';
 import { Vehicles } from '../game/Vehicles';
 import { PlayerRig } from '../game/PlayerRig';
+import { Police } from '../game/Police';
+import { Casualties } from '../game/Casualties';
+import { Missions } from '../game/Missions';
 import { TourDirector } from './TourDirector';
 import { Post } from './Post';
 import { setState } from '@/lib/store';
@@ -53,6 +56,9 @@ export function Scene() {
       <Traffic />
       <Vehicles />
       <PlayerRig />
+      <Police />
+      <Casualties />
+      <Missions />
       <TourDirector />
       <Post />
       <Ready />

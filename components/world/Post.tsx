@@ -120,9 +120,9 @@ export function Post() {
     composer.addPass(new RenderPass(scene, camera));
     const bloom = new UnrealBloomPass(
       new THREE.Vector2(size.width, size.height),
-      0.42,
-      0.62,
-      0.86
+      0.34,
+      0.6,
+      0.95
     );
     composer.addPass(bloom);
     composer.addPass(new OutputPass());
@@ -150,7 +150,7 @@ export function Post() {
     u.uShake.value = live.impact;
     // Lamps and signage carry the night, so let them bloom harder after dark.
     const night = t < 0.26 || t > 0.75 ? 1 : 0;
-    bloom.strength = THREE.MathUtils.damp(bloom.strength, 0.34 + night * 0.5, 3, dt);
+    bloom.strength = THREE.MathUtils.damp(bloom.strength, 0.3 + night * 0.26, 3, dt);
     composer.render(dt);
   }, 1);
 

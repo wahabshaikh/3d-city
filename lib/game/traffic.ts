@@ -169,6 +169,8 @@ export type Jacked = {
   z: number;
   yaw: number;
   colour: number;
+  /** Taking one out of moving traffic is a different crime from taking one off the kerb. */
+  moving: boolean;
 };
 
 const SPEC_FOR_TYPE: Record<number, string> = {
@@ -202,7 +204,7 @@ export function jackNearest(x: number, z: number, reach = 5.5): Jacked | null {
       take: () => {
         s.taken = true;
         hideQueue.push(i);
-        return { spec: specFor(s.type), x: s.x, z: s.z, yaw: s.rot, colour: s.colour };
+        return { spec: specFor(s.type), x: s.x, z: s.z, yaw: s.rot, colour: s.colour, moving: false };
       },
     };
   });
@@ -215,7 +217,7 @@ export function jackNearest(x: number, z: number, reach = 5.5): Jacked | null {
       d,
       take: () => {
         v.taken = true;
-        return { spec: specFor(v.type), x: v.x, z: v.z, yaw: v.yaw, colour: v.colour };
+        return { spec: specFor(v.type), x: v.x, z: v.z, yaw: v.yaw, colour: v.colour, moving: true };
       },
     };
   }

@@ -364,6 +364,7 @@ function police(): VehicleGeo {
     upper: mergeGeometries([
       box(1.6, 0.1, 2.9, 0, 1.66, -0.45),
       box(1.62, 0.22, 0.5, 0, 0.98, 0), // waistband stripe
+      box(1.1, 0.07, 0.24, 0, 1.74, 0.1), // light bar plinth
     ])!,
     glass: mergeGeometries([
       box(1.5, 0.55, 0.09, 0, 1.32, 1.02),
@@ -398,30 +399,42 @@ function police(): VehicleGeo {
 
 /** A 150cc commuter motorcycle — the thing that actually gets through the jam. */
 function bike(): VehicleGeo {
-  const body: P[] = [
-    [-0.86, 0.62],
-    [-0.72, 0.86],
-    [-0.1, 0.84],
-    [0.18, 0.72],
-    [0.42, 0.9],
-    [0.66, 0.9],
-    [0.72, 0.66],
-    [0.5, 0.5],
-    [-0.5, 0.5],
+  // Tank, seat and tail in one painted piece.
+  const shell: P[] = [
+    [-0.94, 0.72],
+    [-0.88, 0.86],
+    [-0.34, 0.88],
+    [-0.1, 0.94],
+    [0.28, 0.9],
+    [0.34, 0.68],
+    [-0.5, 0.6],
+    [-0.9, 0.62],
   ];
+  const forkAngle = 0.42;
+  const fork = (side: number) => {
+    const g = new THREE.BoxGeometry(0.05, 0.62, 0.05);
+    g.rotateX(-forkAngle);
+    g.translate(side * 0.11, 0.62, 0.55);
+    return g;
+  };
   return {
-    lower: profile(body, 0.34, 0.05),
+    lower: profile(shell, 0.3, 0.04),
     upper: mergeGeometries([
-      box(0.62, 0.05, 0.06, 0, 1.02, 0.5), // handlebars
-      box(0.08, 0.44, 0.08, 0, 0.9, 0.62),
+      box(0.34, 0.3, 0.42, 0, 0.5, 0.02), // engine
+      box(0.1, 0.26, 0.1, 0, 0.62, -0.62), // rear shock
+      box(0.62, 0.045, 0.05, 0, 0.99, 0.42), // handlebars
+      box(0.07, 0.3, 0.07, 0, 0.86, 0.46), // headstock
+      fork(1),
+      fork(-1),
+      box(0.3, 0.03, 0.26, 0, 0.44, -0.72), // number plate hanger
     ])!,
-    glass: mergeGeometries([box(0.3, 0.2, 0.04, 0, 1.06, 0.6)])!,
+    glass: mergeGeometries([box(0.26, 0.2, 0.12, 0, 1.02, 0.44)])!,
     ...wheelParts(0.32, 0.12, [
-      [0, 0.32, 0.66],
+      [0, 0.32, 0.67],
       [0, 0.32, -0.68],
     ]),
-    head: lamps([[0, 0.88, 0.72]], 0.18, 0.18),
-    tail: lamps([[0, 0.86, -0.88]], 0.12, 0.1),
+    head: lamps([[0, 0.9, 0.63]], 0.2, 0.2),
+    tail: lamps([[0, 0.78, -0.94]], 0.12, 0.1),
   };
 }
 

@@ -5,6 +5,8 @@ import { mapCanvas, mapX, mapZ, MAP } from '@/lib/game/mapTexture';
 import { LANDMARKS, landmarkWorld } from '@/lib/mumbai/landmarks';
 import { inPhase } from '@/lib/mumbai/bounds';
 import { getState, live } from '@/lib/store';
+import { copBlips } from '@/lib/game/police';
+import { missionsW, passed } from '@/lib/game/missions';
 
 /**
  * The radar. A crop of the baked map, rotated so the way you are facing is
@@ -84,6 +86,11 @@ export function Radar({ blips = [] as Blip[] }: { blips?: Blip[] }) {
           }
         };
         for (const l of LM) dot(l.w[0], l.w[1], '#f2c14e', false, 3 * dpr);
+        for (const m of missionsW())
+          if (!passed.has(m.id)) dot(m.world[0], m.world[1], '#ffd166', true, 5 * dpr);
+        for (const c of copBlips()) dot(c.x, c.z, c.colour, false, 4.2 * dpr);
+        const goal = getState().objectiveAt;
+        if (goal) dot(goal[0], goal[1], '#ff5bb0', false, 5.2 * dpr);
         for (const b of blipRef.current) dot(b.x, b.z, b.colour, !!b.ring, 4.6 * dpr);
         ctx.restore();
 

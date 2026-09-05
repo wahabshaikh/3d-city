@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { live, useStore } from '@/lib/store';
+import { live, setState, useStore } from '@/lib/store';
 import { Radar } from './Radar';
 
 /**
@@ -31,6 +31,7 @@ export function GameHud() {
   const objective = useStore((s) => s.objective);
   const notice = useStore((s) => s.notice);
   const downState = useStore((s) => s.down);
+  const brief = useStore((s) => s.brief);
 
   return (
     <>
@@ -90,7 +91,8 @@ export function GameHud() {
         </div>
       )}
 
-      <EnterPrompt hidden={!!vehicle} />
+      {brief && <Brief brief={brief} />}
+      <EnterPrompt hidden={!!vehicle || !!downState} />
       {downState && <Down kind={downState} />}
     </>
   );
@@ -243,6 +245,48 @@ function Speedo() {
   );
 }
 
+/** What the giver says, on screen long enough to read once. */
+function Brief({ brief }: { brief: { name: string; giver: string; text: string } }) {
+  useEffect(() => {
+    const id = setTimeout(() => setState({ brief: null }), 11000);
+    return () => clearTimeout(id);
+  }, [brief]);
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        left: '50%',
+        top: 76,
+        transform: 'translateX(-50%)',
+        width: 'min(560px, calc(100vw - 40px))',
+        pointerEvents: 'none',
+        background: 'rgba(12,9,16,.78)',
+        border: '1px solid rgba(242,193,78,.35)',
+        borderRadius: 14,
+        padding: '16px 20px 18px',
+        backdropFilter: 'blur(10px)',
+        animation: 'captionIn .35s ease both',
+        zIndex: 30,
+      }}
+    >
+      <div
+        style={{
+          fontSize: 11,
+          letterSpacing: '.18em',
+          textTransform: 'uppercase',
+          color: '#f2c14e',
+        }}
+      >
+        {brief.giver}
+      </div>
+      <div style={{ ...NUM, fontSize: 22, marginTop: 8 }}>{brief.name}</div>
+      <p style={{ margin: '10px 0 0', fontSize: 14, lineHeight: 1.6, color: 'rgba(244,238,230,.8)' }}>
+        {brief.text}
+      </p>
+    </div>
+  );
+}
+
 function EnterPrompt({ hidden }: { hidden: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -288,6 +332,7 @@ function Down({ kind }: { kind: 'wasted' | 'busted' }) {
         display: 'grid',
         placeItems: 'center',
         pointerEvents: 'none',
+        zIndex: 40,
         background:
           kind === 'wasted'
             ? 'radial-gradient(900px 600px at 50% 50%, rgba(120,10,4,.5), rgba(40,2,0,.86))'

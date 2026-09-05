@@ -6,6 +6,7 @@ import { useFrame } from '@react-three/fiber';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { buildWorld, chunk, type Building } from '@/lib/mumbai/world';
 import { crowdGeometry, walking } from './crowd';
+import { hiddenPeople } from '@/lib/game/peds';
 import { signboardTexture } from '@/lib/textures';
 import { useStore } from '@/lib/store';
 import { materials } from './materials';
@@ -70,8 +71,11 @@ export function StreetLife() {
   const swayRef = useRef<{ value: number }[]>([]);
   const boards = useRef<THREE.MeshStandardMaterial[]>([]);
 
+  const rows = useRef(new Map<number, { meshes: THREE.InstancedMesh[]; i: number }>());
+
   const meshes = useMemo(() => {
     const world = buildWorld();
+    rows.current.clear();
     const out: THREE.Object3D[] = [];
     const dummy = new THREE.Object3D();
     const colour = new THREE.Color();
@@ -85,7 +89,9 @@ export function StreetLife() {
     const skin = walking(new THREE.MeshStandardMaterial({ roughness: 0.72 }));
     swayRef.current.push(shirt.uniforms.uTime, lower.uniforms.uTime, skin.uniforms.uTime);
 
-    for (const cell of chunk(world.people, 420)) {
+    // Indexed, so the game can point at one of them and take them out.
+    const indexed = world.people.map((p, i) => ({ ...p, i }));
+    for (const cell of chunk(indexed, 420)) {
       const parts: [THREE.InstancedMesh, (p: (typeof cell)[0]) => number][] = [
         [new THREE.InstancedMesh(fig.lower, lower.mat, cell.length), (p) => p.lower],
         [new THREE.InstancedMesh(fig.shirt, shirt.mat, cell.length), (p) => p.colour],
@@ -101,13 +107,17 @@ export function StreetLife() {
           mesh.setMatrixAt(i, dummy.matrix);
           mesh.setColorAt(i, colour.setHex(tint(p)));
         }
+        rows.current.set(p.i, { meshes: parts.map(([mesh]) => mesh), i });
       });
       for (const [mesh] of parts) {
         mesh.instanceMatrix.needsUpdate = true;
         if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
         mesh.castShadow = true;
-        // The walk happens in the shader, so the bounds three computes are wrong.
-        mesh.frustumCulled = false;
+        // The walk happens in the shader, so three's bounds are a few metres
+        // short. Widen them rather than turning culling off — there are a
+        // hundred of these chunks and they are not all on screen.
+        mesh.computeBoundingSphere();
+        if (mesh.boundingSphere) mesh.boundingSphere.radius += 6;
         out.push(mesh);
       }
     }
@@ -209,8 +219,19 @@ export function StreetLife() {
     return out;
   }, [m]);
 
+  const zero = useMemo(() => new THREE.Matrix4().makeScale(0, 0, 0), []);
+
   useFrame(({ clock }) => {
     for (const u of swayRef.current) u.value = clock.elapsedTime;
+    // Anyone the game has taken out of the crowd leaves the instance buffer.
+    while (hiddenPeople.length) {
+      const row = rows.current.get(hiddenPeople.pop()!);
+      if (!row) continue;
+      for (const mesh of row.meshes) {
+        mesh.setMatrixAt(row.i, zero);
+        mesh.instanceMatrix.needsUpdate = true;
+      }
+    }
   });
 
   // Shop boards are backlit, and a Mumbai street after dark is lit as much by
