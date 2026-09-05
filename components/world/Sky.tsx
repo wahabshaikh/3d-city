@@ -254,12 +254,12 @@ export function SkyDome() {
         shadow-mapSize={[2048, 2048]}
         shadow-camera-near={1}
         shadow-camera-far={1600}
-        shadow-camera-left={-260}
-        shadow-camera-right={260}
-        shadow-camera-top={260}
-        shadow-camera-bottom={-260}
-        shadow-bias={-0.0008}
-        shadow-normalBias={0.6}
+        shadow-camera-left={-150}
+        shadow-camera-right={150}
+        shadow-camera-top={150}
+        shadow-camera-bottom={-150}
+        shadow-bias={-0.0004}
+        shadow-normalBias={0.08}
       />
     </>
   );

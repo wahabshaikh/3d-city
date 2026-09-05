@@ -12,6 +12,7 @@ import {
   type Style,
 } from './districts';
 import { streetNet, onStreet, onArterial, frontage, type Span } from './streets';
+import { BOUNDS, inPhase } from './bounds';
 
 export { STYLES, DISTRICTS, type StyleId };
 export type { District } from './districts';
@@ -41,7 +42,15 @@ export type Tree = { x: number; z: number; s: number; palm: boolean };
 export type StreetLight = { x: number; z: number; rot: number; twin: boolean };
 export type Hoarding = { x: number; z: number; rot: number; w: number; h: number; art: number };
 export type Stall = { x: number; z: number; rot: number; art: number };
-export type Person = { x: number; z: number; rot: number; colour: number; skin: number };
+export type Person = {
+  x: number;
+  z: number;
+  rot: number;
+  colour: number;
+  /** Trousers, a lungi, the lower half of a sari. */
+  lower: number;
+  skin: number;
+};
 /** Kerbside parking. `type` indexes the vehicle set in Traffic. */
 export type Parked = { x: number; z: number; rot: number; type: number };
 
@@ -250,17 +259,7 @@ export function buildWorld(): World {
   /* fill in behind the street wall.                                     */
   /* ------------------------------------------------------------------ */
 
-  let minX = Infinity;
-  let maxX = -Infinity;
-  let minZ = Infinity;
-  let maxZ = -Infinity;
-  for (const poly of [MAINLAND, GORAI])
-    for (const [x, z] of poly) {
-      minX = Math.min(minX, x);
-      maxX = Math.max(maxX, x);
-      minZ = Math.min(minZ, z);
-      maxZ = Math.max(maxZ, z);
-    }
+  const { minX, maxX, minZ, maxZ } = BOUNDS;
 
   const step = 12;
   for (let x = minX; x <= maxX; x += step) {
@@ -277,6 +276,7 @@ export function buildWorld(): World {
 
       const shore = landOK(jx, jz);
       if (shore === 0) continue;
+      if (!inPhase(jx, jz, -2)) continue;
 
       // Palms and beach instead of buildings right on the sand.
       if (shore < 6) {
@@ -349,9 +349,12 @@ export function buildWorld(): World {
         const t = (s + 0.5) * spacing;
         const off = road.width + 2.5;
         const side = road.kind === 'promenade' ? 1 : s % 2 === 0 ? 1 : -1;
+        const lx = x0 + dx * t + nx * off * side;
+        const lz = z0 + dz * t + nz * off * side;
+        if (!inPhase(lx, lz)) continue;
         lights.push({
-          x: x0 + dx * t + nx * off * side,
-          z: z0 + dz * t + nz * off * side,
+          x: lx,
+          z: lz,
           rot: Math.atan2(nx * side, nz * side),
           twin: road.kind === 'promenade' || road.kind === 'artery',
         });
@@ -388,9 +391,12 @@ export function buildWorld(): World {
         const t = (s + 0.5) * 170;
         const side = chance(rng, 0.5) ? 1 : -1;
         const off = (road.width + 9) * side;
+        const hx = x0 + dx * t - dz * off;
+        const hz = z0 + dz * t + dx * off;
+        if (!inPhase(hx, hz)) continue;
         hoardings.push({
-          x: x0 + dx * t - dz * off,
-          z: z0 + dz * t + dx * off,
+          x: hx,
+          z: hz,
           rot: Math.atan2(dx, dz) + (side > 0 ? Math.PI / 2 : -Math.PI / 2),
           w: rand(rng, 12, 20),
           h: rand(rng, 6, 9),
@@ -425,6 +431,11 @@ const SHIRTS = [
   0xc86a3a, 0xe8e2c8, 0x8c2f3a,
 ];
 const SKINS = [0x8d5a3b, 0x7a4a2e, 0xa06f45, 0x6b3f26, 0x99693f];
+/** Below the waist: dark trousers, a check lungi, jeans, a sari's fall. */
+const LOWERS = [
+  0x2c3038, 0x3b3a34, 0x4a4438, 0x22252b, 0x35302a, 0x5a5346, 0x2f3a4a, 0x6a5f4c, 0x8c3a44,
+  0x3f5a48,
+];
 
 function streetLife(rng: Rng, spans: Span[]) {
   const stalls: Stall[] = [];
@@ -461,7 +472,9 @@ function streetLife(rng: Rng, spans: Span[]) {
         x: s.x + dx * t + nx * off,
         z: s.z + dz * t + nz * off,
         rot: s.rot + (chance(rng, 0.5) ? 0 : Math.PI) + rand(rng, -0.06, 0.06),
-        type: roll < 0.3 ? 0 : roll < 0.45 ? 2 : 3,
+        // Taxi, motorcycle, private car. No auto-rickshaws: they are barred
+        // from the island city, and the island city is all Phase 1 is.
+        type: roll < 0.3 ? 0 : roll < 0.42 ? 5 : 3,
       });
     }
 
@@ -475,6 +488,7 @@ function streetLife(rng: Rng, spans: Span[]) {
         z: s.z + dz * t + nz * off,
         rot: s.rot + (chance(rng, 0.5) ? 0 : Math.PI) + rand(rng, -0.5, 0.5),
         colour: pick(rng, SHIRTS),
+        lower: pick(rng, LOWERS),
         skin: pick(rng, SKINS),
       });
     }
@@ -494,11 +508,15 @@ function streetLife(rng: Rng, spans: Span[]) {
       for (let s = 0; s < n; s++) {
         const t = (s + rand(rng, 0.1, 0.9)) * 2.6;
         const off = road.width + rand(rng, 1.4, 7);
+        const px = x0 + dx * t - dz * off;
+        const pz = z0 + dz * t + dx * off;
+        if (!inPhase(px, pz)) continue;
         people.push({
-          x: x0 + dx * t - dz * off,
-          z: z0 + dz * t + dx * off,
+          x: px,
+          z: pz,
           rot: rand(rng, 0, Math.PI * 2),
           colour: pick(rng, SHIRTS),
+          lower: pick(rng, LOWERS),
           skin: pick(rng, SKINS),
         });
       }
@@ -506,9 +524,12 @@ function streetLife(rng: Rng, spans: Span[]) {
       for (let s = 0; s < Math.floor(len / 30); s++) {
         const t = (s + 0.5) * 30;
         const off = road.width + 1.8;
+        const kx = x0 + dx * t - dz * off;
+        const kz = z0 + dz * t + dx * off;
+        if (!inPhase(kx, kz)) continue;
         parked.push({
-          x: x0 + dx * t - dz * off,
-          z: z0 + dz * t + dx * off,
+          x: kx,
+          z: kz,
           rot: Math.atan2(dx, dz) + (chance(rng, 0.5) ? 0 : Math.PI),
           type: chance(rng, 0.55) ? 0 : 3,
         });

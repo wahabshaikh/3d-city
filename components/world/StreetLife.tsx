@@ -5,6 +5,8 @@ import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { buildWorld, chunk, type Building } from '@/lib/mumbai/world';
+import { crowdGeometry, walking } from './crowd';
+import { hiddenPeople } from '@/lib/game/peds';
 import { signboardTexture } from '@/lib/textures';
 import { useStore } from '@/lib/store';
 import { materials } from './materials';
@@ -14,55 +16,6 @@ import { materials } from './materials';
  * signboards along every ground floor, handcarts on the kerb, and people —
  * enough of them that the city is never empty.
  */
-
-/* --------------------------------- people --------------------------------- */
-
-/**
- * A figure at about a hundred triangles. Built once and instanced; a sway in
- * the vertex shader keeps a crowd from reading as a field of bollards, at no
- * per-frame cost on the CPU.
- */
-function figureGeometry() {
-  const legs = new THREE.CylinderGeometry(0.16, 0.13, 0.86, 6);
-  legs.translate(0, 0.43, 0);
-  const torso = new THREE.CylinderGeometry(0.2, 0.18, 0.72, 7);
-  torso.translate(0, 1.2, 0);
-  return { body: mergeGeometries([legs, torso])!, head: headGeometry() };
-}
-
-function headGeometry() {
-  const head = new THREE.SphereGeometry(0.13, 7, 6);
-  head.translate(0, 1.68, 0);
-  const arms = new THREE.CylinderGeometry(0.055, 0.05, 0.62, 5);
-  arms.translate(0, 1.22, 0);
-  const l = arms.clone();
-  l.translate(-0.22, 0, 0);
-  const r = arms.clone();
-  r.translate(0.22, 0, 0);
-  return mergeGeometries([head, l, r])!;
-}
-
-/** Adds a slow, per-instance sway driven by a single uniform. */
-function swaying(mat: THREE.MeshStandardMaterial) {
-  const uniforms = { uTime: { value: 0 } };
-  mat.onBeforeCompile = (shader) => {
-    shader.uniforms.uTime = uniforms.uTime;
-    shader.vertexShader =
-      'uniform float uTime;\n' +
-      shader.vertexShader.replace(
-        '#include <begin_vertex>',
-        `#include <begin_vertex>
-         #ifdef USE_INSTANCING
-           float ph = instanceMatrix[3].x * 0.7 + instanceMatrix[3].z * 1.3;
-           float sway = sin(uTime * 1.6 + ph) * 0.03 * transformed.y;
-           transformed.x += sway;
-           transformed.z += cos(uTime * 1.1 + ph) * 0.02 * transformed.y;
-         #endif`
-      );
-  };
-  mat.customProgramCacheKey = () => 'sway';
-  return { mat, uniforms };
-}
 
 /* --------------------------------- stalls --------------------------------- */
 
@@ -118,8 +71,11 @@ export function StreetLife() {
   const swayRef = useRef<{ value: number }[]>([]);
   const boards = useRef<THREE.MeshStandardMaterial[]>([]);
 
+  const rows = useRef(new Map<number, { meshes: THREE.InstancedMesh[]; i: number }>());
+
   const meshes = useMemo(() => {
     const world = buildWorld();
+    rows.current.clear();
     const out: THREE.Object3D[] = [];
     const dummy = new THREE.Object3D();
     const colour = new THREE.Color();
@@ -127,30 +83,43 @@ export function StreetLife() {
 
     /* ------------------------------- people ------------------------------ */
 
-    const fig = figureGeometry();
-    const shirt = swaying(new THREE.MeshStandardMaterial({ roughness: 0.86 }));
-    const skin = swaying(new THREE.MeshStandardMaterial({ roughness: 0.72 }));
-    swayRef.current.push(shirt.uniforms.uTime, skin.uniforms.uTime);
+    const fig = crowdGeometry();
+    const shirt = walking(new THREE.MeshStandardMaterial({ roughness: 0.86 }));
+    const lower = walking(new THREE.MeshStandardMaterial({ roughness: 0.88 }));
+    const skin = walking(new THREE.MeshStandardMaterial({ roughness: 0.72 }));
+    swayRef.current.push(shirt.uniforms.uTime, lower.uniforms.uTime, skin.uniforms.uTime);
 
-    for (const cell of chunk(world.people, 420)) {
-      const body = new THREE.InstancedMesh(fig.body, shirt.mat, cell.length);
-      const head = new THREE.InstancedMesh(fig.head, skin.mat, cell.length);
+    // Indexed, so the game can point at one of them and take them out.
+    const indexed = world.people.map((p, i) => ({ ...p, i }));
+    for (const cell of chunk(indexed, 420)) {
+      const parts: [THREE.InstancedMesh, (p: (typeof cell)[0]) => number][] = [
+        [new THREE.InstancedMesh(fig.lower, lower.mat, cell.length), (p) => p.lower],
+        [new THREE.InstancedMesh(fig.shirt, shirt.mat, cell.length), (p) => p.colour],
+        [new THREE.InstancedMesh(fig.skin, skin.mat, cell.length), (p) => p.skin],
+      ];
       cell.forEach((p, i) => {
         dummy.position.set(p.x, 0, p.z);
         dummy.rotation.set(0, p.rot, 0);
-        dummy.scale.setScalar(0.92 + ((p.x * 3.1 + p.z * 7.7) % 1) * 0.18);
+        // Nobody is exactly 1.72 m tall.
+        dummy.scale.setScalar(0.9 + ((p.x * 3.1 + p.z * 7.7) % 1) * 0.2);
         dummy.updateMatrix();
-        body.setMatrixAt(i, dummy.matrix);
-        head.setMatrixAt(i, dummy.matrix);
-        body.setColorAt(i, colour.setHex(p.colour));
-        head.setColorAt(i, colour.setHex(p.skin));
+        for (const [mesh, tint] of parts) {
+          mesh.setMatrixAt(i, dummy.matrix);
+          mesh.setColorAt(i, colour.setHex(tint(p)));
+        }
+        rows.current.set(p.i, { meshes: parts.map(([mesh]) => mesh), i });
       });
-      body.instanceMatrix.needsUpdate = true;
-      head.instanceMatrix.needsUpdate = true;
-      if (body.instanceColor) body.instanceColor.needsUpdate = true;
-      if (head.instanceColor) head.instanceColor.needsUpdate = true;
-      body.castShadow = true;
-      out.push(body, head);
+      for (const [mesh] of parts) {
+        mesh.instanceMatrix.needsUpdate = true;
+        if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+        mesh.castShadow = true;
+        // The walk happens in the shader, so three's bounds are a few metres
+        // short. Widen them rather than turning culling off — there are a
+        // hundred of these chunks and they are not all on screen.
+        mesh.computeBoundingSphere();
+        if (mesh.boundingSphere) mesh.boundingSphere.radius += 6;
+        out.push(mesh);
+      }
     }
 
     /* ------------------------------- stalls ------------------------------ */
@@ -250,8 +219,19 @@ export function StreetLife() {
     return out;
   }, [m]);
 
+  const zero = useMemo(() => new THREE.Matrix4().makeScale(0, 0, 0), []);
+
   useFrame(({ clock }) => {
     for (const u of swayRef.current) u.value = clock.elapsedTime;
+    // Anyone the game has taken out of the crowd leaves the instance buffer.
+    while (hiddenPeople.length) {
+      const row = rows.current.get(hiddenPeople.pop()!);
+      if (!row) continue;
+      for (const mesh of row.meshes) {
+        mesh.setMatrixAt(row.i, zero);
+        mesh.instanceMatrix.needsUpdate = true;
+      }
+    }
   });
 
   // Shop boards are backlit, and a Mumbai street after dark is lit as much by

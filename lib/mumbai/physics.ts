@@ -182,3 +182,34 @@ export function resolve(x: number, z: number, feetY: number, r: number): [number
   }
   return [nx, nz];
 }
+
+/**
+ * Somewhere to stand.
+ *
+ * A latitude and longitude taken off a map lands inside a building about as
+ * often as not — landmark footprints are tens of metres across, and a mission
+ * marker or a fast-travel arrival inside one is no use to anybody. One pass of
+ * `resolve` only pushes out of the nearest wall, which deep inside a block is
+ * not enough, so spiral outward until the push-out stops moving the point.
+ */
+export function openGroundNear(x: number, z: number, r = 1.05): [number, number] {
+  const clear = (px: number, pz: number): [number, number] | null => {
+    const g = groundAt(px, pz);
+    if (g.water) return null;
+    const [rx, rz] = resolve(px, pz, g.y, r);
+    return Math.hypot(rx - px, rz - pz) < 0.02 ? [rx, rz] : null;
+  };
+  const here = clear(x, z);
+  if (here) return here;
+  for (let ring = 1; ring <= 12; ring++) {
+    const reach = ring * 5;
+    const n = ring * 6;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2;
+      const spot = clear(x + Math.cos(a) * reach, z + Math.sin(a) * reach);
+      if (spot) return spot;
+    }
+  }
+  return resolve(x, z, groundAt(x, z).y, r);
+}
+

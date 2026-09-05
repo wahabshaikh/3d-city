@@ -108,6 +108,41 @@ export function materials() {
     bestRed: new THREE.MeshStandardMaterial({ color: 0xb0322a, roughness: 0.55 }),
     trainBlue: new THREE.MeshStandardMaterial({ color: 0x2c4a80, roughness: 0.55 }),
 
+    /* -------------------------------- vehicles ------------------------------ */
+    /** Paint that takes a per-instance colour: left white so the tint reads true. */
+    paint: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.36, metalness: 0.22 }),
+    /** Mumbai Police livery: white shell, that one blue band. */
+    policeBlue: new THREE.MeshStandardMaterial({ color: 0x1f4f9c, roughness: 0.45 }),
+    chrome: new THREE.MeshStandardMaterial({ color: 0xb9bec4, roughness: 0.28, metalness: 0.9 }),
+    tyre: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, vertexColors: true }),
+    /** A Gypsy's light bar. Intensity is flashed by the police renderer. */
+    sirenRed: new THREE.MeshStandardMaterial({
+      color: 0xd8281c,
+      emissive: 0xff2a12,
+      emissiveIntensity: 0,
+      roughness: 0.3,
+    }),
+    sirenBlue: new THREE.MeshStandardMaterial({
+      color: 0x1f4f9c,
+      emissive: 0x2f7bff,
+      emissiveIntensity: 0,
+      roughness: 0.3,
+    }),
+
+    /** Lamp lenses. Emissive intensity is driven by the clock, not set here. */
+    headLamp: new THREE.MeshStandardMaterial({
+      color: 0xf6f1de,
+      emissive: 0xfff3d0,
+      emissiveIntensity: 0,
+      roughness: 0.3,
+    }),
+    tailLamp: new THREE.MeshStandardMaterial({
+      color: 0x8e2018,
+      emissive: 0xff2a12,
+      emissiveIntensity: 0.35,
+      roughness: 0.35,
+    }),
+
     // The sheet textures are drawn near-white so they can be tinted. `tin` and
     // `tarp` carry a default weathering; the `*Sheet` pair is left white for
     // instanced roofs, which set their own colour per sheet.

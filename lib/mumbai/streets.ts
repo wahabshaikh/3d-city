@@ -1,4 +1,5 @@
 import { MAINLAND, GORAI, distanceToShore, pointInPolygon } from './coastline';
+import { BOUNDS, inPhase } from './bounds';
 import { ROADS, RAIL_LINES, roadWorld, railWorld } from './roads';
 import {
   DISTRICTS_W,
@@ -214,6 +215,7 @@ function pushSpans(out: Span[], lamps: StreetNet['lamps'], g: Grid) {
         const [x, z] = toWorld(u, v);
         // Cheapest rejections first: this loop runs a few hundred thousand times.
         if (
+          !inPhase(x, z, -2) ||
           !owns(g.d, x, z) ||
           onArterial(x, z) ||
           inOpenSpace(x, z) ||
@@ -249,27 +251,17 @@ export function streetNet(): StreetNet {
     });
   }
 
-  // The gaps between districts — mostly the eastern flats and the far north —
+  // The gaps between districts — mostly the eastern flats behind the docks —
   // still need lanes, on one indifferent grain.
-  let minX = Infinity;
-  let maxX = -Infinity;
-  let minZ = Infinity;
-  let maxZ = -Infinity;
-  for (const [x, z] of MAINLAND) {
-    minX = Math.min(minX, x);
-    maxX = Math.max(maxX, x);
-    minZ = Math.min(minZ, z);
-    maxZ = Math.max(maxZ, z);
-  }
   pushSpans(spans, lamps, {
     d: null,
-    ox: (minX + maxX) / 2,
-    oz: (minZ + maxZ) / 2,
+    ox: BOUNDS.cx,
+    oz: BOUNDS.cz,
     a: (18 * Math.PI) / 180,
     block: 76,
     hw: 5.0,
     gully: false,
-    reach: Math.max(maxX - minX, maxZ - minZ) / 2 + 80,
+    reach: Math.max(BOUNDS.width, BOUNDS.depth) / 2 + 80,
   });
 
   net = { spans, lamps };

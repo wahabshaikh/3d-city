@@ -13,8 +13,10 @@ import {
 } from '@/lib/store';
 import { LANDMARKS, LANDMARKS_BY_ID } from '@/lib/mumbai/landmarks';
 import { compassLabel } from '@/lib/geo';
-import { MiniMap, BigMap } from './CityMap';
+import { BigMap } from './CityMap';
 import { TourPanel, TourFade } from './Tour';
+import { GameHud } from '../game/GameHud';
+import { PHASE } from '@/lib/mumbai/bounds';
 
 const gold = '#f2c14e';
 const panel: React.CSSProperties = {
@@ -34,13 +36,14 @@ export function Hud() {
   const touring = useStore((s) => s.tour) !== null;
   const welcome = !started;
 
+  const playing = !welcome && !touring && !showMap && !showHelp;
+
   return (
     <>
       <TourFade />
-      <Crosshair visible={locked && !showMap && !showHelp && !touring} />
+      {playing && <GameHud />}
       {!welcome && !touring && <TopBar />}
-      {!touring && <LandmarkCard />}
-      {!welcome && !touring && <BottomRight />}
+      {!touring && locked && <LandmarkCard />}
       {touring && <TourPanel />}
       {showMap && <MapOverlay />}
       {showHelp && <HelpOverlay />}
@@ -52,31 +55,6 @@ export function Hud() {
 }
 
 /* --------------------------------- pieces --------------------------------- */
-
-function Crosshair({ visible }: { visible: boolean }) {
-  if (!visible) return null;
-  return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        display: 'grid',
-        placeItems: 'center',
-        pointerEvents: 'none',
-      }}
-    >
-      <div
-        style={{
-          width: 5,
-          height: 5,
-          borderRadius: 999,
-          background: 'rgba(255,255,255,.85)',
-          boxShadow: '0 0 0 1.5px rgba(0,0,0,.45)',
-        }}
-      />
-    </div>
-  );
-}
 
 /** Compass strip, coordinates and frame rate. Polls `live` rather than re-rendering. */
 function TopBar() {
@@ -92,9 +70,7 @@ function TopBar() {
         const h = live.heading;
         el.textContent = `${compassLabel(h)} ${Math.round(h)
           .toString()
-          .padStart(3, '0')}°   ·   ${live.inWater ? 'in the water' : `${Math.round(
-          live.altitude
-        )} m`}   ·   ${live.fps} fps`;
+          .padStart(3, '0')}°   ·   ${live.fps} fps`;
       }
       raf = requestAnimationFrame(tick);
     };
@@ -168,8 +144,8 @@ function LandmarkCard() {
         ...panel,
         position: 'fixed',
         left: 20,
-        bottom: 20,
-        width: 385,
+        top: 70,
+        width: 355,
         maxWidth: 'calc(100vw - 40px)',
         padding: '18px 20px 20px',
         opacity: nearest ? 1 : 0,
@@ -210,74 +186,6 @@ function LandmarkCard() {
         {lm.blurb}
       </p>
     </div>
-  );
-}
-
-function releasePointer() {
-  if (document.pointerLockElement) document.exitPointerLock();
-}
-
-function BottomRight() {
-  const mode = useStore((s) => s.mode);
-  return (
-    <div
-      style={{
-        position: 'fixed',
-        right: 20,
-        bottom: 20,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'flex-end',
-        gap: 10,
-      }}
-    >
-      <div style={{ ...panel, padding: 8, lineHeight: 0 }}>
-        <MiniMap />
-      </div>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-        <Chip
-          onClick={() => {
-            setState({ showMap: true });
-            releasePointer();
-          }}
-        >
-          Map · M
-        </Chip>
-        <Chip onClick={() => setState({ mode: mode === 'fly' ? 'walk' : 'fly' })}>
-          {mode === 'fly' ? 'Walk · F' : 'Fly · F'}
-        </Chip>
-        <Chip
-          onClick={() => {
-            releasePointer();
-            setState({ showHelp: true });
-          }}
-        >
-          Keys · H
-        </Chip>
-        <Chip onClick={() => startTour()}>▶ Tour · T</Chip>
-      </div>
-    </div>
-  );
-}
-
-function Chip({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="hud-chip"
-      style={{
-        ...panel,
-        padding: '7px 12px',
-        fontSize: 12,
-        color: 'rgba(244,238,230,.82)',
-        cursor: 'pointer',
-        font: 'inherit',
-        fontFamily: 'inherit',
-      }}
-    >
-      {children}
-    </button>
   );
 }
 
@@ -416,17 +324,17 @@ function MapOverlay() {
 }
 
 const KEYMAP: [string, string][] = [
-  ['T', 'Take the guided tour'],
-  ['W A S D', 'Walk'],
+  ['W A S D', 'Run — steer, when you are driving'],
   ['Shift', 'Sprint'],
-  ['Space', 'Jump / rise'],
-  ['C', 'Descend (flying)'],
-  ['Mouse', 'Look'],
-  ['F', 'Toggle flight'],
-  ['M', 'City map & fast travel'],
+  ['Space', 'Jump — handbrake, in a car'],
+  ['F', 'Get in / get out'],
+  ['Mouse', 'Look around'],
+  ['Wheel', 'Pull the camera in and out'],
+  ['M', 'Map'],
+  ['T', 'Guided tour of the district'],
   ['[  ]', 'Wind time back / forward'],
   ['H', 'This panel'],
-  ['Esc', 'Release the cursor'],
+  ['Esc', 'Pause'],
 ];
 
 function HelpOverlay() {
@@ -561,18 +469,28 @@ function StartOverlay({ started, loaded }: { started: boolean; loaded: boolean }
               Mumbai
             </h1>
             <div style={{ fontSize: 22, color: 'rgba(244,238,230,.45)', marginTop: 8 }}>मुंबई</div>
+            <div
+              style={{
+                marginTop: 14,
+                fontSize: 11.5,
+                letterSpacing: '.18em',
+                textTransform: 'uppercase',
+                color: 'rgba(244,238,230,.5)',
+              }}
+            >
+              Chapter {PHASE.id} · {PHASE.name}
+            </div>
             <p
               style={{
-                margin: '18px auto 0',
-                maxWidth: 420,
+                margin: '14px auto 0',
+                maxWidth: 430,
                 fontSize: 15,
                 lineHeight: 1.65,
                 color: 'rgba(244,238,230,.6)',
               }}
             >
-              You start on Apollo Bunder, facing the Gateway of India with the Taj behind
-              it. Marine Drive is fifteen minutes north-west on foot; the Sea Link is
-              further — open the map when you want to jump.
+              {PHASE.blurb} You start on Apollo Bunder with the Gateway of India in front of
+              you and the Taj behind it. Walk up to anything parked at the kerb and press F.
             </p>
           </>
         )}
@@ -581,8 +499,7 @@ function StartOverlay({ started, loaded }: { started: boolean; loaded: boolean }
           <>
             <h2 style={{ margin: 0, fontSize: 26 }}>Paused</h2>
             <p style={{ margin: '10px 0 0', fontSize: 14, color: 'rgba(244,238,230,.5)' }}>
-              Esc released the cursor. Pick up where you left off, open the map, or head
-              home.
+              {PHASE.name} · Chapter {PHASE.id}
             </p>
           </>
         )}
@@ -608,7 +525,7 @@ function StartOverlay({ started, loaded }: { started: boolean; loaded: boolean }
                 color: gold,
               }}
             >
-              ▶ Take the tour
+              ▶ Watch the intro
             </button>
           )}
 
@@ -621,11 +538,7 @@ function StartOverlay({ started, loaded }: { started: boolean; loaded: boolean }
               color: loaded ? 'rgba(244,238,230,.85)' : 'rgba(244,238,230,.45)',
             }}
           >
-            {loaded
-              ? started
-                ? 'Resume exploring'
-                : 'Explore on foot'
-              : 'Building the city…'}
+            {loaded ? (started ? 'Resume' : 'Start') : 'Building the city…'}
           </button>
 
           {started && loaded && (
@@ -649,7 +562,7 @@ function StartOverlay({ started, loaded }: { started: boolean; loaded: boolean }
               letterSpacing: '.05em',
             }}
           >
-            W A S D to walk · Shift to run · F to fly · M for the map
+W A S D to run · Shift to sprint · F to get in · Space for the handbrake · M for the map
           </div>
         )}
 
