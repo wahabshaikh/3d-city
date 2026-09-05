@@ -114,7 +114,7 @@ export function materials() {
     /** Mumbai Police livery: white shell, that one blue band. */
     policeBlue: new THREE.MeshStandardMaterial({ color: 0x1f4f9c, roughness: 0.45 }),
     chrome: new THREE.MeshStandardMaterial({ color: 0xb9bec4, roughness: 0.28, metalness: 0.9 }),
-    tyre: new THREE.MeshStandardMaterial({ color: 0x121212, roughness: 0.95 }),
+    tyre: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, vertexColors: true }),
     /** Lamp lenses. Emissive intensity is driven by the clock, not set here. */
     headLamp: new THREE.MeshStandardMaterial({
       color: 0xf6f1de,

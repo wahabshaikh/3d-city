@@ -16,6 +16,7 @@ import { Traffic } from './Traffic';
 import { Vehicles } from '../game/Vehicles';
 import { PlayerRig } from '../game/PlayerRig';
 import { TourDirector } from './TourDirector';
+import { Post } from './Post';
 import { setState } from '@/lib/store';
 
 function Ready() {
@@ -53,6 +54,7 @@ export function Scene() {
       <Vehicles />
       <PlayerRig />
       <TourDirector />
+      <Post />
       <Ready />
     </>
   );

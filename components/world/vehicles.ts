@@ -20,7 +20,18 @@ export type VehicleGeo = {
   lower: THREE.BufferGeometry;
   upper: THREE.BufferGeometry;
   glass: THREE.BufferGeometry;
+  /** All four (or six) wheels in one piece, for instanced traffic. */
   wheels: THREE.BufferGeometry;
+  /**
+   * The same wheels split by axle and re-centred on it, so the car you are
+   * driving can steer its front pair and spin both. Traffic at fifty metres
+   * does not need this; the car filling your screen does.
+   */
+  wheelsFront: THREE.BufferGeometry;
+  wheelsRear: THREE.BufferGeometry;
+  /** Axle positions along the car, [front, rear], and the tyre radius. */
+  axle: [number, number];
+  wheelRadius: number;
   head: THREE.BufferGeometry;
   tail: THREE.BufferGeometry;
 };
@@ -95,15 +106,48 @@ function greenhouse(cabin: P[], width: number) {
   return { frame, glass: profile(cabin, width - 0.05, 0.015) };
 }
 
+/** Paint every vertex of a geometry one shade, so one mesh can hold two. */
+function shade(g: THREE.BufferGeometry, v: number) {
+  const n = g.attributes.position.count;
+  const c = new Float32Array(n * 3).fill(v);
+  g.setAttribute('color', new THREE.BufferAttribute(c, 3));
+  return g;
+}
+
 function wheelSet(r: number, w: number, at: [number, number, number][]) {
   return mergeGeometries(
     at.map(([x, y, z]) => {
-      const g = new THREE.CylinderGeometry(r, r, w, 12);
-      g.rotateZ(Math.PI / 2);
-      g.translate(x, y, z);
-      return g;
+      // A black disc reads as a hole in the bodywork. The hub is what stops it.
+      const tyre = shade(new THREE.CylinderGeometry(r, r, w, 12), 0.09);
+      tyre.rotateZ(Math.PI / 2);
+      const hub = shade(new THREE.CylinderGeometry(r * 0.44, r * 0.44, w * 1.08, 10), 0.42);
+      hub.rotateZ(Math.PI / 2);
+      // One spoke, so a spinning wheel reads as spinning.
+      const spoke = shade(new THREE.BoxGeometry(w * 1.12, r * 0.86, r * 0.14), 0.3);
+      const merged = mergeGeometries([tyre, hub, spoke])!;
+      merged.translate(x, y, z);
+      return merged;
     })
   )!;
+}
+
+/** Wheels three ways: whole, and split by axle for the car you are driving. */
+function wheelParts(r: number, w: number, at: [number, number, number][]) {
+  const mid = (list: [number, number, number][]) =>
+    list.length ? list.reduce((n, a) => n + a[2], 0) / list.length : 0;
+  const front = at.filter((a) => a[2] > 0);
+  const rear = at.filter((a) => a[2] <= 0);
+  const fz = mid(front);
+  const rz = mid(rear);
+  const recentre = (list: [number, number, number][], z: number) =>
+    list.map(([x, , az]) => [x, 0, az - z] as [number, number, number]);
+  return {
+    wheels: wheelSet(r, w, at),
+    wheelsFront: wheelSet(r, w, recentre(front, fz)),
+    wheelsRear: wheelSet(r, w, recentre(rear, rz)),
+    axle: [fz, rz] as [number, number],
+    wheelRadius: r,
+  };
 }
 
 /** Lamp lenses, as flat pads set into the bodywork. */
@@ -138,7 +182,7 @@ function taxi(): VehicleGeo {
     lower: profile(body, 1.66),
     upper: mergeGeometries([gh.frame, box(0.3, 0.16, 0.62, 0, 1.62, 0.15)])!,
     glass: gh.glass,
-    wheels: wheelSet(0.31, 0.2, [
+    ...wheelParts(0.31, 0.2, [
       [0.78, 0.31, 1.2],
       [-0.78, 0.31, 1.2],
       [0.78, 0.31, -1.2],
@@ -186,7 +230,7 @@ function bus(): VehicleGeo {
       box(2.3, 1.15, 0.1, 0, 1.85, 5.16),
       box(2.3, 1.15, 0.1, 0, 3.4, 5.16),
     ])!,
-    wheels: wheelSet(0.55, 0.32, [
+    ...wheelParts(0.55, 0.32, [
       [1.24, 0.55, 3.3],
       [-1.24, 0.55, 3.3],
       [1.24, 0.55, -2.9],
@@ -235,7 +279,7 @@ function auto(): VehicleGeo {
       box(0.12, 0.66, 0.12, -0.56, 1.42, 0.4),
     ])!,
     glass: mergeGeometries([box(1.06, 0.5, 0.07, 0, 1.36, 0.78)])!,
-    wheels: wheelSet(0.28, 0.16, [
+    ...wheelParts(0.28, 0.16, [
       [0, 0.28, 0.98],
       [0.6, 0.28, -0.86],
       [-0.6, 0.28, -0.86],
@@ -277,7 +321,7 @@ function sedan(): VehicleGeo {
     lower: profile(body, 1.74),
     upper: gh.frame,
     glass: gh.glass,
-    wheels: wheelSet(0.33, 0.22, [
+    ...wheelParts(0.33, 0.22, [
       [0.8, 0.33, 1.34],
       [-0.8, 0.33, 1.34],
       [0.8, 0.33, -1.34],
@@ -327,7 +371,7 @@ function police(): VehicleGeo {
       box(0.08, 0.5, 2.5, -0.77, 1.3, -0.4),
       box(1.5, 0.5, 0.09, 0, 1.3, -1.88),
     ])!,
-    wheels: wheelSet(0.38, 0.24, [
+    ...wheelParts(0.38, 0.24, [
       [0.79, 0.38, 1.18],
       [-0.79, 0.38, 1.18],
       [0.79, 0.38, -1.18],
@@ -372,7 +416,7 @@ function bike(): VehicleGeo {
       box(0.08, 0.44, 0.08, 0, 0.9, 0.62),
     ])!,
     glass: mergeGeometries([box(0.3, 0.2, 0.04, 0, 1.06, 0.6)])!,
-    wheels: wheelSet(0.32, 0.12, [
+    ...wheelParts(0.32, 0.12, [
       [0, 0.32, 0.66],
       [0, 0.32, -0.68],
     ]),

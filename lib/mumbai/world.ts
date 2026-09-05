@@ -42,7 +42,15 @@ export type Tree = { x: number; z: number; s: number; palm: boolean };
 export type StreetLight = { x: number; z: number; rot: number; twin: boolean };
 export type Hoarding = { x: number; z: number; rot: number; w: number; h: number; art: number };
 export type Stall = { x: number; z: number; rot: number; art: number };
-export type Person = { x: number; z: number; rot: number; colour: number; skin: number };
+export type Person = {
+  x: number;
+  z: number;
+  rot: number;
+  colour: number;
+  /** Trousers, a lungi, the lower half of a sari. */
+  lower: number;
+  skin: number;
+};
 /** Kerbside parking. `type` indexes the vehicle set in Traffic. */
 export type Parked = { x: number; z: number; rot: number; type: number };
 
@@ -423,6 +431,11 @@ const SHIRTS = [
   0xc86a3a, 0xe8e2c8, 0x8c2f3a,
 ];
 const SKINS = [0x8d5a3b, 0x7a4a2e, 0xa06f45, 0x6b3f26, 0x99693f];
+/** Below the waist: dark trousers, a check lungi, jeans, a sari's fall. */
+const LOWERS = [
+  0x2c3038, 0x3b3a34, 0x4a4438, 0x22252b, 0x35302a, 0x5a5346, 0x2f3a4a, 0x6a5f4c, 0x8c3a44,
+  0x3f5a48,
+];
 
 function streetLife(rng: Rng, spans: Span[]) {
   const stalls: Stall[] = [];
@@ -475,6 +488,7 @@ function streetLife(rng: Rng, spans: Span[]) {
         z: s.z + dz * t + nz * off,
         rot: s.rot + (chance(rng, 0.5) ? 0 : Math.PI) + rand(rng, -0.5, 0.5),
         colour: pick(rng, SHIRTS),
+        lower: pick(rng, LOWERS),
         skin: pick(rng, SKINS),
       });
     }
@@ -502,6 +516,7 @@ function streetLife(rng: Rng, spans: Span[]) {
           z: pz,
           rot: rand(rng, 0, Math.PI * 2),
           colour: pick(rng, SHIRTS),
+          lower: pick(rng, LOWERS),
           skin: pick(rng, SKINS),
         });
       }

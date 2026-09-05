@@ -18,6 +18,7 @@ import {
   type DriveInput,
 } from '@/lib/game/vehicles';
 import { buildCharacter, LOOKS, poseSeated, poseWalk, type Rig } from './character';
+import { contactGeometry, contactMaterial } from './contact';
 import { CarView } from './CarView';
 import { bearing } from '@/lib/geo';
 import { closeMap, getState, live, notify, setState, startTour, useStore } from '@/lib/store';
@@ -66,7 +67,8 @@ function probe(
   want: number
 ) {
   const steps = 8;
-  let ok = 1.35;
+  // Nothing free at all means the shot goes first-person rather than into a wall.
+  let ok = 0.22;
   for (let i = 1; i <= steps; i++) {
     const t = (i / steps) * want;
     const x = fx - dx * t;
@@ -86,6 +88,34 @@ function probe(
     ok = t;
   }
   return ok;
+}
+
+/**
+ * Somewhere to stand.
+ *
+ * The landmark viewpoints and the map's fast travel both land inside a
+ * building now and then, and one pass of `resolve` only pushes out of the
+ * nearest wall — deep inside a block that is not enough. So spiral outward
+ * until the push-out stops moving the point.
+ */
+function freeSpot(x: number, z: number): [number, number] {
+  const clear = (px: number, pz: number) => {
+    const y = groundAt(px, pz).y;
+    const [rx, rz] = resolve(px, pz, y, RADIUS + 0.3);
+    return Math.hypot(rx - px, rz - pz) < 0.02 ? ([rx, rz] as [number, number]) : null;
+  };
+  const here = clear(x, z);
+  if (here) return here;
+  for (let ring = 1; ring <= 9; ring++) {
+    const r = ring * 5;
+    for (let i = 0; i < ring * 6; i++) {
+      const a = (i / (ring * 6)) * Math.PI * 2;
+      const [px, pz] = clampToPhase(x + Math.cos(a) * r, z + Math.sin(a) * r, 6);
+      const spot = clear(px, pz);
+      if (spot) return spot;
+    }
+  }
+  return resolve(x, z, groundAt(x, z).y, RADIUS + 0.3);
 }
 
 export function PlayerRig() {
@@ -117,6 +147,9 @@ export function PlayerRig() {
   const rig = useMemo<Rig>(() => buildCharacter(LOOKS[0]), []);
   const nearestTimer = useRef(0);
   const fpsAcc = useRef({ t: 0, n: 0 });
+  const blobRef = useRef<THREE.Mesh>(null);
+  // Its own copy: the player's blob fades on a jump, the parked cars' do not.
+  const blobMat = useMemo(() => contactMaterial().clone(), []);
   const focus = useMemo(() => new THREE.Vector3(), []);
   const dir = useMemo(() => new THREE.Vector3(), []);
   const wish = useMemo(() => new THREE.Vector3(), []);
@@ -128,9 +161,7 @@ export function PlayerRig() {
   const place = useRef((x: number, z: number, yaw?: number) => {
     const p = ped.current;
     const [bx, bz] = clampToPhase(x, z, 6);
-    // Never drop the player inside a wall — the fast-travel viewpoints and the
-    // landmark centres both land in one now and then.
-    const [cx, cz] = resolve(bx, bz, groundAt(bx, bz).y, RADIUS + 0.3);
+    const [cx, cz] = freeSpot(bx, bz);
     p.x = cx;
     p.z = cz;
     p.y = groundAt(cx, cz).y;
@@ -153,7 +184,17 @@ export function PlayerRig() {
     // The screenshot harness and the browser console drive the player through this.
     (window as unknown as Record<string, unknown>).__player = {
       place: (x: number, z: number, yaw?: number) => place.current(x, z, yaw),
-      get: () => ({ ...ped.current, driving: !!carRef.current }),
+      get: () => {
+        const p = ped.current;
+        const d = nearestDistrict(p.x, p.z);
+        return {
+          ...p,
+          driving: !!carRef.current,
+          ground: groundAt(p.x, p.z),
+          near: collidersNear(p.x, p.z).length,
+          district: d?.name ?? null,
+        };
+      },
       steal: () => {
         keys.current.enter = true;
       },
@@ -491,6 +532,20 @@ export function PlayerRig() {
       c.dist = damp(c.dist, clamp(c.dist, 2.6, 6.5), 5, dt);
     }
 
+    // The blob fades and spreads as the player leaves the ground.
+    if (blobRef.current) {
+      const b = blobRef.current;
+      b.visible = !driving && rig.root.visible;
+      if (b.visible) {
+        const g = groundAt(p.x, p.z);
+        const air = THREE.MathUtils.clamp((p.y - g.y) / 3, 0, 1);
+        b.position.set(p.x, g.y + 0.03, p.z);
+        const w = 1.15 + air * 0.9;
+        b.scale.set(w, 1, w);
+        blobMat.opacity = (1 - air) * 0.85;
+      }
+    }
+
     /* -------------------------------- camera -------------------------------- */
 
     const cp = Math.cos(c.pitch);
@@ -549,7 +604,8 @@ export function PlayerRig() {
   return (
     <group>
       <primitive object={rig.root} />
-      {car && <CarView car={car} />}
+      <mesh ref={blobRef} geometry={contactGeometry()} material={blobMat} renderOrder={2} />
+      {car && <CarView car={car} driven />}
       {loose.map((l, i) => (
         <CarView key={i} car={l} />
       ))}
